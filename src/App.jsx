@@ -4,22 +4,54 @@ import {
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
 } from 'firebase/auth';
 import { 
-  getFirestore, doc, getDoc, addDoc, onSnapshot, collection, query, limit, orderBy 
+  getFirestore, doc, getDoc, setDoc, addDoc, onSnapshot, collection, query, limit
 } from 'firebase/firestore';
 
-// 캔버스 환경 변수와 전역 변수를 사용하여 설정 로드
-// Gemini API Key는 Canvas 환경에서 자동으로 주입되므로 빈 문자열로 설정합니다.
-const VITE_GEMINI_API_KEY = ""; 
+// =====================================================================
+// 보안을 위해 환경에서 주입된 전역 변수를 사용하고, 오류 방지를 위한 폴백을 추가합니다.
+// =====================================================================
 
-// __app_id와 __firebase_config는 캔버스 환경에서 전역으로 제공됩니다.
-const VITE_APP_ID_RAW = typeof __app_id !== 'undefined' ? __app_id : 'recipe-blog-vsc-001';
+// 사용자 정의 Firebase 구성 (전역 변수 로드 실패 시 사용될 하드코딩된 폴백)
+const FALLBACK_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBCuExMq5WeAn6dvWM-Qj3rFGbYEgkUZuM",
+    authDomain: "k-food-with-german-groceries.firebaseapp.com",
+    projectId: "k-food-with-german-groceries",
+    storageBucket: "k-food-with-german-groceries.firebasestorage.app",
+    messagingSenderId: "1023501163434",
+    appId: "1:1023501163434:web:8d5ac1aa46bd6aa4f4e9d3"
+};
 
-// [중요 수정] Firestore 경로 오류 방지: VITE_APP_ID에 슬래시(/)가 포함되어 세그먼트 수가 짝수가 되는 것을 방지하기 위해 첫 번째 세그먼트만 사용합니다.
+// 1. Firebase 구성 로드
+let firebaseConfig = FALLBACK_FIREBASE_CONFIG;
+if (typeof __firebase_config !== 'undefined') {
+    try {
+        const parsedConfig = JSON.parse(__firebase_config);
+        if (parsedConfig && parsedConfig.apiKey && parsedConfig.projectId) {
+            firebaseConfig = parsedConfig;
+        } else {
+             console.warn("경고: '__firebase_config'가 유효하지 않아 하드코딩된 폴백을 사용합니다.");
+        }
+    } catch (e) {
+        console.warn("경고: '__firebase_config' 파싱 오류. 하드코딩된 폴백을 사용합니다.", e);
+    }
+}
+
+// 2. Gemini API 키: 환경 변수(__gemini_api_key)를 사용합니다.
+const GEMINI_API_KEY = typeof __gemini_api_key !== 'undefined' 
+    ? __gemini_api_key 
+    : ""; 
+
+// 3. App ID 로드
+const FALLBACK_APP_ID = 'recipe-blog-vsc-001';
+const VITE_APP_ID_RAW = typeof __app_id !== 'undefined' 
+    ? __app_id 
+    : FALLBACK_APP_ID; 
 const VITE_APP_ID = VITE_APP_ID_RAW.split('/')[0];
 
-// Firebase 설정은 캔버스 환경에서 제공되는 __firebase_config 전역 변수에 의존합니다.
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
+// 상수 정의 (이하 동일)
+const MAX_RETRIES = 3;
+const RATE_LIMIT_SECONDS = 3600; // 1시간 (60 * 60초)
 
 // 텍스트 콘텐츠 정의 (다국어 지원)
 const TEXT_CONTENT = {
@@ -28,12 +60,13 @@ const TEXT_CONTENT = {
     subtitle: "현지 재료로 즐기는 한식! (한/독/영 3개국어 레시피 제공)",
     authStatus: "User ID:",
     adPlaceholder: "수익화 구역 : 상단 광고 (Top Banner Ad)",
-    adLocation: "광고 코드 위치  ",
+    adLocation: "광고 코드 위치  ",
     aiSimulation: "✨ 독일 마트에서 찾는 한국의 맛",
     aiButton: "오늘의 레시피 자동 생성! 📝",
     latestRecipes: "최신 레시피 목록",
     loading: "레시피를 불러오는 중입니다...",
     authError: "(인증 오류: Firebase 설정 또는 네트워크를 확인하세요.)",
+    generateErrorKey: "(API 키 오류: Gemini API 키가 올바르게 설정되지 않았습니다.)", // 메시지 강화
     generateSuccess: "새 레시피가 성공적으로 생성되었습니다!",
     generateError: "레시피 생성 중 오류 발생.",
     noRecipe: "아직 레시피가 없습니다. 생성 버튼을 눌러 시작하세요!",
@@ -42,6 +75,12 @@ const TEXT_CONTENT = {
     korean: "한국어",
     german: "독일어",
     english: "영어",
+    rateLimit: (time) => `생성 제한: ${time}분 후 다시 시도해 주세요.`,
+    commentsTitle: "댓글",
+    addComment: "댓글 달기",
+    commentPlaceholder: "댓글을 입력하세요...",
+    commentSuccess: "댓글이 등록되었습니다.",
+    commentError: "댓글 등록 중 오류 발생.",
   },
   DE: {
     title: "K-Rezept Blog für deutsche Supermärkte 🍜 ",
@@ -54,6 +93,7 @@ const TEXT_CONTENT = {
     latestRecipes: "Neueste Rezepte",
     loading: "Rezepte werden geladen...",
     authError: "(Authentifizierungsfehler: Überprüfen Sie die Firebase-Einstellungen oder das Netzwerk.)",
+    generateErrorKey: "(API Key Error: Gemini API Key is not set correctly.)", 
     generateSuccess: "Neues Rezept wurde erfolgreich erstellt!",
     generateError: "Fehler beim Erstellen des Rezepts.",
     noRecipe: "Es sind noch keine Rezepte vorhanden. Starten Sie mit dem Generierungsknopf!",
@@ -62,6 +102,12 @@ const TEXT_CONTENT = {
     korean: "Koreanisch",
     german: "Deutsch",
     english: "Englisch",
+    rateLimit: (time) => `Limit: Bitte versuchen Sie es in ${time} Minuten erneut.`,
+    commentsTitle: "Kommentare",
+    addComment: "Kommentieren",
+    commentPlaceholder: "Kommentar eingeben...",
+    commentSuccess: "Kommentar wurde hinzugefügt.",
+    commentError: "Fehler beim Hinzufügen des Kommentars.",
   },
   EN: {
     title: "K-Food Recipe Blog for German Groceries 🍜 ",
@@ -74,6 +120,7 @@ const TEXT_CONTENT = {
     latestRecipes: "Latest Recipes List",
     loading: "Loading recipes...",
     authError: "(Authentication Error: Check Firebase settings or network.)",
+    generateErrorKey: "(API Key Error: Gemini API Key is not set correctly.)",
     generateSuccess: "New recipe successfully generated!",
     generateError: "Error generating recipe.",
     noRecipe: "No recipes yet. Click the Generation button to start!",
@@ -82,25 +129,32 @@ const TEXT_CONTENT = {
     korean: "Korean",
     german: "German",
     english: "English",
+    rateLimit: (time) => `Rate Limit: Please try again in ${time} minutes.`,
+    commentsTitle: "Comments",
+    addComment: "Add Comment",
+    commentPlaceholder: "Enter your comment...",
+    commentSuccess: "Comment posted successfully.",
+    commentError: "Error posting comment.",
   },
 };
-
-const MAX_RETRIES = 3;
 
 // Firebase 초기화
 let app, db, auth;
 try {
-  // firebaseConfig가 유효한지 확인합니다.
-  if (firebaseConfig && firebaseConfig.apiKey) {
+  // 최소한의 설정 값이 있는지 확인합니다.
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    console.log("Firebase가 성공적으로 초기화되었습니다.");
+  } else {
+    // Firebase 구성 누락 시 오류 로깅
+    console.error("Firebase 초기화 오류: Firebase 구성이 올바르지 않습니다.");
   }
 } catch (error) {
   console.error("Firebase 초기화 오류:", error);
 }
 
-// 지연 함수 (API 호출 시 백오프 로직에 사용)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function App() {
@@ -108,10 +162,10 @@ export default function App() {
   const [userId, setUserId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [language, setLanguage] = useState('KR'); // KR을 기본 언어로 설정
+  const [statusMessage, setStatusMessage] = useState(""); 
+  const [language, setLanguage] = useState('KR'); 
   
-  const T = TEXT_CONTENT[language]; // 선택된 언어 콘텐츠
+  const T = TEXT_CONTENT[language];
 
   // 1. Firebase 인증 상태 리스너 및 초기화
   useEffect(() => {
@@ -124,23 +178,22 @@ export default function App() {
       if (user) {
         setUserId(user.uid);
       } else {
-        // 익명 로그인 시도 (인증이 안 되어 있을 경우)
         try {
-          // __initial_auth_token이 정의되어 있으면 Custom Token으로 로그인
+          // __initial_auth_token을 사용하여 Custom Token으로 인증을 시도하고, 
+          // 토큰이 없으면 익명 인증으로 폴백합니다.
           if (typeof __initial_auth_token !== 'undefined') {
               const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
               setUserId(userCredential.user.uid);
           } else {
-              // 그렇지 않으면 익명 로그인 시도
               const anonymousUser = await signInAnonymously(auth);
               setUserId(anonymousUser.user.uid);
           }
         } catch (error) {
           console.error("인증 실패:", error);
-          setUserId(null); // 로그인 실패 시 User ID를 null로 설정
+          setUserId(null); 
         }
       }
-      setAuthReady(true);
+      setAuthReady(true); // 인증 상태(성공 또는 실패)를 확인했으므로 true 설정
     });
 
     return () => unsubscribe();
@@ -148,56 +201,92 @@ export default function App() {
 
   // 2. 레시피 데이터 실시간 리스너 (Firestore Snapshot)
   useEffect(() => {
-    if (!db || !authReady || !userId) {
-      // 인증 준비가 안 되었거나 db 객체가 없으면 리스너를 실행하지 않음
+    // db가 초기화되고 userId가 확정된 후에만 쿼리를 실행하여 권한 오류를 방지합니다.
+    if (!db || !userId) {
       if (authReady && !userId) {
-        // 인증 실패 시 메시지 출력
         setStatusMessage(T.authError);
       }
       return;
     }
     
-    // Firestore 컬렉션 경로: /artifacts/{appId}/public/data/recipes
+    console.log("Firestore Query Running for user:", userId);
+
     const recipeCollectionRef = collection(db, `artifacts/${VITE_APP_ID}/public/data/recipes`);
-    // orderBy() 대신에 JavaScript에서 정렬하기 위해 orderBy()를 제거합니다.
+    // orderBy() 대신 JavaScript에서 정렬을 수행하기 위해 쿼리에서 제거했습니다.
     const q = query(recipeCollectionRef, limit(10));
     
-    // 실시간 리스너 설정
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         let fetchedRecipes = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
-        
-        // 데이터가 로드되면 createdAt 필드를 기준으로 JavaScript에서 정렬합니다.
-        fetchedRecipes.sort((a, b) => {
-            if (a.createdAt && b.createdAt) {
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            }
-            return 0;
-        });
+
+        // JavaScript에서 최신 순으로 정렬 (orderBy('createdAt', 'desc') 대체)
+        fetchedRecipes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         setRecipes(fetchedRecipes);
-        setStatusMessage(fetchedRecipes.length === 0 ? T.noRecipe : "");
+        
+        // 상태 메시지 업데이트 로직
+        if (fetchedRecipes.length === 0 && !isLoading) {
+           setStatusMessage(T.noRecipe);
+        } else if (!isLoading && !statusMessage.includes('제한')) {
+           setStatusMessage("");
+        }
       }, 
       (error) => {
         console.error("Firestore 데이터 로딩 오류:", error);
-        setStatusMessage(T.authError); // Firestore 오류 시 인증/네트워크 오류 메시지 출력
+        // 권한 오류 발생 시 에러 메시지 업데이트
+        setStatusMessage(T.authError + ` (${error.code})`);
       }
     );
 
-    return () => unsubscribe(); // 컴포넌트 언마운트 시 리스너 해제
-  }, [authReady, userId, T]);
+    return () => unsubscribe();
+  }, [authReady, T, isLoading, userId]); // userId를 의존성 배열에 명시적으로 추가하여 인증 완료 후 실행 보장
 
 
-  // 3. Gemini API 호출 및 Firestore 저장
+  // 3. Rate Limiting 체크 및 Gemini API 호출
   const generateRecipe = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !db) {
       setStatusMessage("🚨 사용자 인증(User ID)이 완료되지 않아 레시피를 생성할 수 없습니다.");
       return;
     }
+    
+    // 🚨 API 키 유효성 검사 추가
+    if (!GEMINI_API_KEY) {
+        console.error("Gemini API Key가 비어 있습니다. .env 파일 설정을 확인하세요.");
+        setStatusMessage(T.generateErrorKey);
+        return;
+    }
 
+    // Rate Limiting 체크: Rate limit 문서는 사용자 개인 경로에 저장합니다.
+    const rateLimitDocRef = doc(db, `artifacts/${VITE_APP_ID}/users/${userId}/user_settings/rate_limit`);
+    let lastGeneratedAt = null;
+
+    try {
+        const rateLimitSnapshot = await getDoc(rateLimitDocRef);
+        if (rateLimitSnapshot.exists()) {
+            lastGeneratedAt = rateLimitSnapshot.data().lastGeneratedAt;
+        }
+    } catch (e) {
+        console.error("Rate Limit 데이터 로드 오류:", e);
+    }
+
+    const now = new Date();
+    const lastTime = lastGeneratedAt ? (typeof lastGeneratedAt === 'string' ? new Date(lastGeneratedAt) : (lastGeneratedAt.toDate ? lastGeneratedAt.toDate() : new Date(lastGeneratedAt))) : null;
+    
+    if (lastTime) {
+        const elapsedSeconds = (now.getTime() - lastTime.getTime()) / 1000;
+
+        if (elapsedSeconds < RATE_LIMIT_SECONDS) {
+            const remainingSeconds = Math.ceil(RATE_LIMIT_SECONDS - elapsedSeconds);
+            const remainingMinutes = Math.ceil(remainingSeconds / 60);
+            setStatusMessage(T.rateLimit(remainingMinutes));
+            return;
+        }
+    }
+
+    // Rate Limit 통과, API 호출 시작
     setIsLoading(true);
     setStatusMessage(T.recipeGenerationInProgress);
 
@@ -248,11 +337,13 @@ export default function App() {
     let success = false;
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
-        // VITE_GEMINI_API_KEY가 비어 있지만, Canvas 환경에서 자동으로 API 키를 제공합니다.
-        const apiKey = VITE_GEMINI_API_KEY; 
+        // GEMINI_API_KEY 변수는 이미 위에서 정의되어 있습니다.
+        const apiKey = GEMINI_API_KEY; 
+        
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         
-        // API 호출
+        console.log(`Gemini API 호출 시도 ${i + 1}/${MAX_RETRIES}`);
+        
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -260,7 +351,15 @@ export default function App() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorBody = await response.text();
+          console.error(`Gemini API 호출 실패 (${response.status}):`, errorBody);
+          // 403 오류의 경우, API 키 문제이므로 재시도하지 않고 바로 중단합니다.
+          if (response.status === 403) {
+             setStatusMessage(T.generateErrorKey);
+             break; 
+          }
+          setStatusMessage(`🚨 Gemini API 오류 (${response.status}): 요청 실패. 콘솔을 확인하세요.`);
+          break; 
         }
 
         const result = await response.json();
@@ -274,38 +373,145 @@ export default function App() {
         }
       } catch (error) {
         console.error(`Gemini API 호출 실패 (시도 ${i + 1}/${MAX_RETRIES}):`, error);
-        await delay(Math.pow(2, i) * 1000); // Exponential backoff (1s, 2s, 4s delay)
+        if (i < MAX_RETRIES - 1) {
+            await delay(Math.pow(2, i) * 1000); 
+        }
       }
     }
 
     if (success && generatedRecipe) {
       try {
+        // 1. 레시피 데이터 저장: 공개 경로에 저장합니다.
         const recipeData = {
           ...generatedRecipe,
           createdAt: new Date().toISOString(),
           userId: userId,
         };
-        // Firestore에 레시피 저장
         await addDoc(collection(db, `artifacts/${VITE_APP_ID}/public/data/recipes`), recipeData);
+
+        // 2. Rate Limit 타임스탬프 업데이트 (성공 시에만)
+        await setDoc(rateLimitDocRef, { lastGeneratedAt: now.toISOString() }, { merge: true });
+        
         setStatusMessage(T.generateSuccess);
       } catch (dbError) {
-        console.error("Firestore 저장 오류:", dbError);
+        console.error("Firestore 저장 또는 Rate Limit 업데이트 오류:", dbError);
         setStatusMessage(T.generateError);
       }
     } else {
-      setStatusMessage(T.generateError);
+        // 이미 API 오류 메시지가 설정된 경우가 아니라면 일반 오류 메시지를 설정
+        if (!statusMessage.includes('API 오류') && !statusMessage.includes('API Key')) {
+            setStatusMessage(T.generateError);
+        }
     }
 
     setIsLoading(false);
-  }, [userId, T]);
+  }, [userId, T, db]);
+
+  // CommentSection Component (RecipeCard 내부에서 사용)
+  const CommentSection = ({ recipeId }) => {
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [commentStatus, setCommentStatus] = useState('');
+
+    useEffect(() => {
+        if (!db || !userId) return; // userId 확정 후 실행
+
+        const commentsRef = collection(db, `artifacts/${VITE_APP_ID}/public/data/recipes/${recipeId}/comments`);
+        const q = query(commentsRef, limit(10)); 
+
+        const unsubscribe = onSnapshot(q, 
+            (snapshot) => {
+                const fetchedComments = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // 최신 순으로 JS에서 정렬
+                fetchedComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setComments(fetchedComments);
+            },
+            (error) => {
+                console.error("댓글 로딩 오류:", error);
+            }
+        );
+        return () => unsubscribe();
+    }, [recipeId, userId]); // userId를 의존성 배열에 추가하여 권한 오류 방지
+
+    const handleAddComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim() || !userId) {
+            setCommentStatus("댓글 내용을 입력하거나, 사용자 인증이 필요합니다.");
+            return;
+        }
+
+        try {
+            const commentData = {
+                userId: userId,
+                text: newComment.trim(),
+                createdAt: new Date().toISOString(),
+            };
+            const commentsRef = collection(db, `artifacts/${VITE_APP_ID}/public/data/recipes/${recipeId}/comments`);
+            await addDoc(commentsRef, commentData);
+            
+            setNewComment('');
+            setCommentStatus(T.commentSuccess);
+            setTimeout(() => setCommentStatus(''), 3000);
+
+        } catch (error) {
+            console.error("댓글 등록 오류:", error);
+            setCommentStatus(T.commentError);
+            setTimeout(() => setCommentStatus(''), 3000);
+        }
+    };
+
+    return (
+        <div className="mt-6 border-t pt-4">
+            <h4 className="font-semibold text-xl text-gray-800 mb-3">{T.commentsTitle} ({comments.length})</h4>
+            
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">
+                {comments.length > 0 ? comments.map((comment) => (
+                    <div key={comment.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-sm font-medium text-gray-700">{comment.text}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            {comment.userId.substring(0, 8)}... (at {new Date(comment.createdAt).toLocaleDateString()})
+                        </p>
+                    </div>
+                )) : (
+                    <p className="text-sm text-gray-400 italic">첫 댓글을 남겨주세요.</p>
+                )}
+            </div>
+
+            <form onSubmit={handleAddComment}>
+                <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder={T.commentPlaceholder}
+                    rows="2"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 text-sm"
+                />
+                <button
+                    type="submit"
+                    disabled={!userId}
+                    className="mt-2 px-4 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-700 transition disabled:bg-gray-400 text-sm"
+                >
+                    {T.addComment}
+                </button>
+                {commentStatus && (
+                    <p className={`mt-2 text-xs font-medium ${commentStatus.includes('오류') || commentStatus.includes('Error') ? 'text-red-500' : 'text-green-600'}`}>
+                        {commentStatus}
+                    </p>
+                )}
+            </form>
+        </div>
+    );
+  };
+
 
   // 레시피 카드의 언어별 렌더링
   const RecipeCard = ({ recipe }) => {
-    // 레시피 객체가 없거나 해당 언어 콘텐츠가 없으면 null 반환
     if (!recipe || !recipe.name || !recipe.name[language]) return null;
 
     return (
-      <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1 mb-4 border-l-4 border-red-500">
+      <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1 mb-6 border-l-4 border-red-500">
         <h3 className="text-2xl font-bold text-gray-800 mb-2">{recipe.name[language]}</h3>
         <p className="text-sm text-gray-500 mb-4">{T.languageSelector} {language} | {recipe.prepTimeMinutes}min | {recipe.serveCount} {language === 'KR' ? '인분' : 'Servings'}</p>
         
@@ -317,7 +523,6 @@ export default function App() {
               {language === 'KR' ? '재료' : (language === 'DE' ? 'Zutaten' : 'Ingredients')}
             </h4>
             <ul className="list-disc list-inside space-y-1 text-gray-700">
-              {/* [수정] 배열에서 문자열만 필터링하여 React Object-as-child 오류 방지 */}
               {recipe.ingredients[language]
                 ?.filter(item => typeof item === 'string')
                 .map((item, index) => (
@@ -330,7 +535,6 @@ export default function App() {
               {language === 'KR' ? '조리 방법' : (language === 'DE' ? 'Zubereitung' : 'Instructions')}
             </h4>
             <ol className="list-decimal list-inside space-y-2 text-gray-700">
-              {/* [수정] 배열에서 문자열만 필터링하여 React Object-as-child 오류 방지 */}
               {recipe.steps[language]
                 ?.filter(step => typeof step === 'string')
                 .map((step, index) => (
@@ -346,6 +550,8 @@ export default function App() {
             </h5>
             <p className="text-sm text-yellow-700 mt-1">{recipe.germanGroceryTip[language]}</p>
         </div>
+        
+        <CommentSection recipeId={recipe.id} />
       </div>
     );
   };
@@ -361,7 +567,6 @@ export default function App() {
             <p className="text-sm md:text-base text-gray-500 mt-1">{T.subtitle}</p>
           </div>
           
-          {/* 언어 선택 드롭다운 */}
           <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
             <label htmlFor="language-select" className="hidden md:inline">{T.languageSelector}</label>
             <select
@@ -386,7 +591,7 @@ export default function App() {
             </span>
           </p>
         </div>
-
+        
         {/* 광고 영역 (Placeholder) */}
         <div className="my-6">
           <p className="text-xs text-gray-500 mb-1">{T.adPlaceholder}</p>
@@ -400,10 +605,11 @@ export default function App() {
           <h2 className="text-xl font-bold text-red-700 mb-3">{T.aiSimulation}</h2>
           <button
             onClick={generateRecipe}
-            disabled={isLoading || !authReady || !userId}
+            // 로딩 중이거나 인증이 안 되었거나 생성 제한 상태이면 버튼 비활성화
+            disabled={isLoading || !authReady || !userId || statusMessage.includes('제한')}
             className={`
               w-full md:w-auto px-6 py-3 rounded-full font-bold text-white transition duration-300 shadow-lg
-              ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 active:bg-red-800 hover:shadow-xl'}
+              ${(isLoading || statusMessage.includes('제한')) ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 active:bg-red-800 hover:shadow-xl'}
             `}
           >
             {isLoading ? (
@@ -419,7 +625,7 @@ export default function App() {
           
           {/* 상태 메시지 */}
           {statusMessage && (
-            <p className={`mt-3 text-sm font-medium ${statusMessage.includes('오류') || statusMessage.includes('Error') || statusMessage.includes('Fehler') ? 'text-red-500' : 'text-green-600'}`}>
+            <p className={`mt-3 text-sm font-medium ${statusMessage.includes('오류') || statusMessage.includes('Error') || statusMessage.includes('Fehler') || statusMessage.includes('API Key') || statusMessage.includes('제한') ? 'text-red-500' : 'text-green-600'}`}>
               {statusMessage}
             </p>
           )}
