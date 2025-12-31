@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, query, orderBy, limit, getDocs, getDoc, doc, addDoc, serverTimestamp, onSnapshot,startAfter} from 'firebase/firestore'; 
+import { collection, query, setDoc, orderBy, limit, getDocs, getDoc, doc, addDoc, serverTimestamp, onSnapshot,startAfter} from 'firebase/firestore'; 
 import { db, appId, userId, apiKey_gemini } from './firebase'; 
 import GermanMartTips from './components/GermanMartTips';
 import RecipeModal from './components/RecipeModal';
@@ -19,8 +19,9 @@ const MAX_CALLS_PER_HOUR = 25; // 1시간당 최대 호출 횟수
 const RATE_LIMIT_DURATION_MS = 60 * 60 * 1000; // 1시간 (밀리초)
 
 // Firestore Paths
-// const rateLimitCollectionPath = (appId) => `artifacts/${appId}/public/data/rateLimits`;
+const rateLimitCollectionPath = (appId) => `artifacts/${appId}/public/data/rateLimits`;
 // const savedRecipesCollectionPath = (appId, userId) => `artifacts/${appId}/users/${userId}/saved_recipes`;
+const savedRecipesCollectionPath = (appId) => `artifacts/${appId}/public_recipes`;
 
 // Language Configuration
 const langConfig = {
@@ -354,6 +355,25 @@ const App = () => {
         }
     };
     
+    const handleSaveRecipe = async () => {
+        if (!generatedRecipe || isRecipeSaved || !db || !userId) return;
+        
+        try {
+            // 수정된 경로 사용
+            const recipesRef = collection(db, savedRecipesCollectionPath(appId)); 
+            await addDoc(recipesRef, {
+                ...generatedRecipe,
+                userId: userId, // 누가 저장했는지 기록
+                createdAt: serverTimestamp(),
+            });
+            setIsRecipeSaved(true);
+            setSystemMessageHandler("레시피가 저장되었습니다!", "success");
+        } catch (error) {
+            console.error("Save Error:", error);
+            setSystemMessageHandler("저장 중 오류가 발생했습니다.", "error");
+        }
+    };
+
     const handleGenerateRecipe = async () => {
         // 1. 기본 체크
         if (isLoading || !db || !userId) return;
@@ -382,15 +402,13 @@ const App = () => {
         setSystemMessageHandler(langConfig[currentLang].generating_message, 'info');
         setGeneratedRecipe(null);
         
-        console.log(genAI);
-
         try {
-            const userQuery = `Create a brand new, highly creative Korean recipe using ingredients commonly and easily found in German supermarkets (like Rewe, Edeka, Aldi, Lidl). The recipe should be based on the following culinary idea: ${userPrompt}.`;
-            const systemPrompt = `You are a specialized culinary innovator focused on 'German Supermarket Korean Food'. 
+            const userQuery = `Create traditional Korean recipe using ingredients commonly and easily found in German supermarkets (like Rewe, Edeka, Aldi, Lidl). The recipe should be based on the following culinary idea: ${userPrompt}.`;
+            const systemPrompt = `You are a specialized culinary chef focused on 'German Supermarket Korean Food'. 
             Return a JSON OBJECT (not array) with: name_ko, name_en, name_de, description_ko, description_en, description_de, ingredients (array), steps_ko (array), steps_en (array), steps_de (array).`;
     
             const result = await genAI.models.generateContent({
-                model: "gemini-1.5-pro",
+                model: "gemini-2.5-flash-preview-09-2025",
                 contents: [
                   {
                     role: "user",
@@ -404,21 +422,34 @@ const App = () => {
               });
               
               const text = result.text
-           
+              
+           // 5. 파싱 
+let parsedRecipe = null;
+try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("JSON pattern not found");
+    const data = JSON.parse(jsonMatch[0]);
+    const rawData = Array.isArray(data) ? data[0] : data;
 
-            // 5. 파싱
-            let parsedRecipe = null;
-            try {
-                const jsonText = text.replace(/```json\s*|```/g, '').trim();
-                const data = JSON.parse(jsonText);
-                // 배열로 오든 객체로 오든 대응
-                parsedRecipe = Array.isArray(data) ? data[0] : data;
-                
-                if (!parsedRecipe || !parsedRecipe.name_ko) throw new Error("Invalid structure");
-            } catch (e) {
-                console.error("JSON 파싱 실패:", text);
-                throw new Error("결과 형식이 올바르지 않습니다.");
-            }
+    // UI(renderRecipe)가 사용하는 필드명에 현재 언어 데이터를 매핑합니다.
+    parsedRecipe = {
+        ...rawData,
+        // UI의 제목 부분 대응
+        name: rawData[`name_${currentLang}`] || rawData.name_ko,
+        description: rawData[`description_${currentLang}`] || rawData.description_ko,
+        
+        // UI가 'ingredients'를 맵핑하므로 현재 언어에 맞는 재료를 넣어줌
+        ingredients: rawData[`ingredients_${currentLang}`] || rawData.ingredients || [],
+        
+        // UI가 'instructions'를 맵핑하므로 현재 언어에 맞는 단계를 넣어줌
+        instructions: rawData[`steps_${currentLang}`] || rawData.steps_ko || rawData.steps || []
+    };
+
+    if (!parsedRecipe.name) throw new Error("Invalid structure");
+} catch (e) {
+    console.error("JSON 파싱 실패:", text);
+    throw new Error("레시피 형식이 올바르지 않습니다.");
+}
     
             // 6. 상태 업데이트
             setGeneratedRecipe(parsedRecipe);
@@ -447,6 +478,8 @@ const App = () => {
             setIsLoading(false);
         }
     };
+
+
     // --- UI Helpers ---
     const t = langConfig[currentLang];
 
@@ -476,8 +509,6 @@ const App = () => {
             </span>
         );
     };
-
-    const recommendations = ["REWE 소시지 부대찌개", "EDEKA 삼겹살 수육", "Lidl 냉동 새우전", "Kaufland 굴라쉬 육개장"];
 
     const renderRecipeSection = (title, items) => {
         // Ensure items is an array for list rendering, or use a placeholder if needed
@@ -517,6 +548,7 @@ const App = () => {
         return (
             <div className="mt-8 p-6 bg-white shadow-xl rounded-3xl border-2 border-indigo-100">
               <h2 className="text-3xl font-extrabold mb-6 text-indigo-900 border-b-4 border-indigo-500 pb-2 inline-block">
+              <p className="text-gray-600 mb-6 italic">{generatedRecipe.description}</p>
                 {generatedRecipe.name_ko || generatedRecipe.name}
               </h2>
               
