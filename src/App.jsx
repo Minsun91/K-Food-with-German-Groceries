@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, query, setDoc, orderBy, limit, getDocs, getDoc, doc, addDoc, serverTimestamp, onSnapshot,startAfter} from 'firebase/firestore'; 
-import { db, appId, userId, apiKey_gemini } from './firebase'; 
+import { collection, query, setDoc, orderBy, limit, getDocs, getDoc, doc, addDoc, serverTimestamp, onSnapshot, startAfter } from 'firebase/firestore';
+import { db, appId, userId, apiKey_gemini } from './firebase';
 import GermanMartTips from './components/GermanMartTips';
 import RecipeModal from './components/RecipeModal';
 import Footer from './components/Footer';
 import PriceComparison from './components/PriceComparison';
 import { GoogleGenAI } from "@google/genai";
 
-const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY;
-// const appId = typeof __app_id !== 'undefined' ? __app_id : 'recipe-blog-vsc-001';
-// const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 const genAI = new GoogleGenAI({
     apiKey: apiKey_gemini,
-  });
+});
 
 // --- Rate Limiting Constants ---
 const MAX_CALLS_PER_HOUR = 25; // 1시간당 최대 호출 횟수
@@ -20,7 +17,6 @@ const RATE_LIMIT_DURATION_MS = 60 * 60 * 1000; // 1시간 (밀리초)
 
 // Firestore Paths
 const rateLimitCollectionPath = (appId) => `artifacts/${appId}/public/data/rateLimits`;
-// const savedRecipesCollectionPath = (appId, userId) => `artifacts/${appId}/users/${userId}/saved_recipes`;
 const savedRecipesCollectionPath = (appId) => `artifacts/${appId}/public_recipes`;
 
 // Language Configuration
@@ -87,6 +83,75 @@ const langConfig = {
     },
 };
 
+    // WhatsApp 공유 함수
+    const shareToWhatsApp = (recipe) => {
+        if (!recipe?.id) {
+            alert(currentLang === 'de' ? "Speichere das Rezept zuerst!" : "Save the recipe first!");
+            return;
+        }
+        const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=de`;
+        const recipeName = recipe.name_de || recipe.name_en || recipe.name_ko;
+        const text = `${recipeName}\nProbier dieses Rezept aus! \n\n ${shareUrl}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+const shareToKakao = (recipe, currentLang) => { 
+    const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
+
+    if (!recipe || !recipe.id) {
+        const alertMsg = {
+            ko: "먼저 '레시피 저장' 버튼을 눌러주세요!",
+            en: "Please save the recipe first!",
+            de: "Bitte speichere zuerst das Rezept!"
+        };
+        alert(alertMsg[currentLang] || alertMsg['ko']);
+        return;
+    }
+
+    if (window.Kakao) {
+        if (!window.Kakao.isInitialized()) {
+            window.Kakao.init(kakaoKey);
+        }
+
+        const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=${currentLang}`;
+
+        const contentConfig = {
+            ko: {
+                title: recipe.name_ko || recipe.name,
+                description: '독일 마트 재료로 만든 한식 레시피!',
+                button: '레시피 보기'
+            },
+            en: {
+                title: recipe.name_en || recipe.name,
+                description: 'Korean recipes with German ingredients!',
+                button: 'View Recipe'
+            },
+            de: {
+                title: recipe.name_de || recipe.name,
+                description: 'Koreanische Rezepte mit deutschen Zutaten!',
+                button: 'Rezept ansehen'
+            }
+        };
+
+        const config = contentConfig[currentLang] || contentConfig['ko'];
+
+        window.Kakao.Share.sendDefault({
+            objectType: 'feed',
+            content: {
+                title: config.title,
+                description: config.description,
+                imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
+                link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
+            },
+            buttons: [
+                {
+                    title: config.button,
+                    link: { mobileWebUrl: shareUrl, webUrl: shareUrl }
+                }
+            ],
+        });
+    }
+};
 // Utility function for exponential backoff retry logic
 const withExponentialBackoff = async (fn, retries = 5) => {
     for (let i = 0; i < retries; i++) {
@@ -111,16 +176,16 @@ const processApiResponse = (result) => {
     return { text };
 };
 const BEST_MENU_K10 = [
-    { ko: "제육볶음", de: "Schweinefleischpfanne", icon: "🔥" },
-    { ko: "된장찌개", de: "Sojabohnenpaste-Eintopf", icon: "🥘" },
-    { ko: "김치찌개", de: "Kimchi-Eintopf", icon: "🍲" },
-    { ko: "불고기", de: "Bulgogi", icon: "🥩" },
-    { ko: "닭갈비", de: "Dakgalbi", icon: "🍗" },
-    { ko: "떡볶이", de: "Tteokbokki", icon: "🌶️" },
-    { ko: "미역국", de: "Seetang-Suppe", icon: "🥣" },
-    { ko: "비빔밥", de: "Bibimbap", icon: "🥗" },
-    { ko: "파전", de: "Pajeon (Pfannkuchen)", icon: "🥞" },
-    { ko: "보쌈", de: "Bossam", icon: "🥓" }
+    { id: 1, name_ko: "제육볶음", name_de: "Schweinefleischpfanne", name_en: "Spicy Pork Fry", icon: "🔥" },
+    { id: 2, name_ko: "된장찌개", name_de: "Sojabohnenpaste-Eintopf", name_en: "Soybean Paste Stew", icon: "🥘" },
+    { id: 3, name_ko: "김치찌개", name_de: "Kimchi-Eintopf", name_en: "Kimchi Stew", icon: "🍲" },
+    { id: 4, name_ko: "불고기", name_de: "Bulgogi", name_en: "Bulgogi", icon: "🥩" },
+    { id: 5, name_ko: "닭갈비", name_de: "Dakgalbi", name_en: "Spicy Chicken Stir-fry", icon: "🍗" },
+    { id: 6, name_ko: "떡볶이", name_de: "Tteokbokki", name_en: "Tteokbokki", icon: "🌶️" },
+    { id: 7, name_ko: "미역국", name_de: "Seetang-Suppe", name_en: "Seaweed Soup", icon: "🥣" },
+    { id: 8, name_ko: "비빔밥", name_de: "Bibimbap", name_en: "Bibimbap", icon: "🥗" },
+    { id: 9, name_ko: "파전", name_de: "Pajeon (Pfannkuchen)", name_en: "Scallion Pancake", icon: "🥞" },
+    { id: 10, name_ko: "보쌈", name_de: "Bossam", name_en: "Boiled Pork Wraps", icon: "🥓" }
 ];
 
 const getMarketSearchLink = (market, itemName) => {
@@ -223,46 +288,42 @@ const App = () => {
             console.warn("DB 또는 appId가 없습니다.");
             return;
         }
-    
+
         setIsMoreLoading(true);
         try {
             const recipesRef = collection(db, `artifacts/${appId}/public_recipes`);
-            
-            // 💡 q를 let으로 선언해야 아래에서 재할당이 가능합니다.
             let q;
-    
+
             if (isFirst) {
-                // 처음 로드: 최신순 6개
                 q = query(recipesRef, orderBy("timestamp", "desc"), limit(6));
             } else {
-                // 더보기: 마지막 데이터 이후부터 6개
                 if (!lastVisible) return;
                 q = query(recipesRef, orderBy("timestamp", "desc"), startAfter(lastVisible), limit(6));
             }
-    
+
             const snapshot = await getDocs(q);
-            
+
             if (snapshot.empty) {
                 if (isFirst) setRecentRecipes([]);
                 setHasMore(false);
                 return;
             }
-    
+
             const newRecipes = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
-    
+
             setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-            
+
             if (isFirst) {
                 setRecentRecipes(newRecipes);
             } else {
                 setRecentRecipes(prev => [...prev, ...newRecipes]);
             }
-            
+
             if (newRecipes.length < 6) setHasMore(false);
-    
+
         } catch (error) {
             console.error("레시피 로드 실패 세부내용:", error);
         } finally {
@@ -270,7 +331,7 @@ const App = () => {
         }
     };
     useEffect(() => {
-        if (db) { 
+        if (db) {
             fetchRecipes(true);
         }
     }, [db]);
@@ -299,75 +360,47 @@ const App = () => {
         if (!message || message === ';' || message.trim() === '') {
             return;
         }
-    
+
         setSystemMessage({ message, type });
-        
+
         const timer = setTimeout(() => setSystemMessage(null), 5000);
         return () => clearTimeout(timer);
     }, []);
 
-    // WhatsApp 공유 함수
-    const shareToWhatsApp = (recipe) => {
-        if (!recipe?.id) {
-            alert(currentLang === 'de' ? "Speichere das Rezept zuerst!" : "Save the recipe first!");
-            return;
-        }
-        const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=de`;
-        const recipeName = recipe.name_de || recipe.name_en || recipe.name_ko;
-        const text = `${recipeName}\nProbier dieses Rezept aus! \n\n ${shareUrl}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
 
-    const shareToKakao = (recipe) => {
-        if (!recipe || !recipe.id) {
-            alert(currentLang === 'ko' ? "먼저 '레시피 저장' 버튼을 눌러주세요!" : "Please save the recipe first!");
-            return;
-        }
-
-        if (window.Kakao) {
-            if (!window.Kakao.isInitialized()) {
-                window.Kakao.init(kakaoKey);
-            }
-
-            const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=${currentLang}`;
-
-            window.Kakao.Share.sendDefault({
-                objectType: 'feed',
-                content: {
-                    title: recipe[`name_${currentLang}`] || recipe.name_ko,
-                    description: '독일 마트 재료로 만든 한식 레시피!',
-                    imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
-                    link: {
-                        mobileWebUrl: shareUrl,
-                        webUrl: shareUrl
-                    },
-                },
-                buttons: [
-                    {
-                        title: '레시피 보기',
-                        link: {
-                            mobileWebUrl: shareUrl,
-                            webUrl: shareUrl
-                        }
-                    }
-                ],
-            });
-        }
-    };
-    
     const handleSaveRecipe = async () => {
-        if (!generatedRecipe || isRecipeSaved || !db || !userId) return;
-        
+        if (!generatedRecipe || isRecipeSaved || !db || !userId) {
+            console.error("저장 불가 조건:", { generatedRecipe, isRecipeSaved, db, userId });
+            return;
+        }
+    
         try {
-            // 수정된 경로 사용
-            const recipesRef = collection(db, savedRecipesCollectionPath(appId)); 
-            await addDoc(recipesRef, {
-                ...generatedRecipe,
-                userId: userId, // 누가 저장했는지 기록
-                createdAt: serverTimestamp(),
-            });
+            const recipesRef = collection(db, savedRecipesCollectionPath(appId));
+            
+            const recipeData = {
+                ...generatedRecipe, 
+                
+                // ✅ UI가 바로 읽을 수 있는 공통 필드 (현재 언어 기준)
+                name: generatedRecipe.name || generatedRecipe[`name_${currentLang}`],
+                description: generatedRecipe.description || generatedRecipe[`description_${currentLang}`],
+                ingredients: generatedRecipe.ingredients || generatedRecipe[`ingredients_${currentLang}`],
+                instructions: generatedRecipe.instructions || generatedRecipe[`steps_${currentLang}`],
+                
+                // ✅ 관리 및 추적용 필드
+                timestamp: serverTimestamp(), 
+                userId: userId,      // 작성자 ID
+                savedBy: userId,     // 저장한 사람 (질문하신 내용 추가)
+                lang: currentLang    // 저장 당시의 언어 설정
+            };
+    
+            await addDoc(recipesRef, recipeData);
+
             setIsRecipeSaved(true);
-            setSystemMessageHandler("레시피가 저장되었습니다!", "success");
+            setSystemMessageHandler(
+                currentLang === 'ko' ? "레시피가 저장되었습니다!" : 
+                (currentLang === 'de' ? "Rezept gespeichert!" : "Recipe saved successfully!"), 
+                "success"
+            );
         } catch (error) {
             console.error("Save Error:", error);
             setSystemMessageHandler("저장 중 오류가 발생했습니다.", "error");
@@ -381,14 +414,14 @@ const App = () => {
             setSystemMessageHandler("메뉴를 선택하거나 입력해주세요.", "error");
             return;
         }
-    
+
         // 2. Rate Limit 체크
         let currentCount = rateLimit.count;
         let currentResetTime = rateLimit.resetTime;
         if (currentResetTime < Date.now()) {
             currentCount = 0;
         }
-    
+
         if (currentCount >= MAX_CALLS_PER_HOUR) {
             const remainingMinutes = Math.ceil((currentResetTime - Date.now()) / 60000);
             setSystemMessageHandler(
@@ -397,80 +430,79 @@ const App = () => {
             );
             return;
         }
-    
+
         setIsLoading(true);
         setSystemMessageHandler(langConfig[currentLang].generating_message, 'info');
         setGeneratedRecipe(null);
-        
+
         try {
             const userQuery = `Create traditional Korean recipe using ingredients commonly and easily found in German supermarkets (like Rewe, Edeka, Aldi, Lidl). The recipe should be based on the following culinary idea: ${userPrompt}.`;
             const systemPrompt = `You are a specialized culinary chef focused on 'German Supermarket Korean Food'. 
             Return a JSON OBJECT (not array) with: name_ko, name_en, name_de, description_ko, description_en, description_de, ingredients (array), steps_ko (array), steps_en (array), steps_de (array).`;
-    
+
             const result = await genAI.models.generateContent({
                 model: "gemini-2.5-flash-preview-09-2025",
                 contents: [
-                  {
-                    role: "user",
-                    parts: [
-                      {
-                        text: `${systemPrompt}\n\nUser Query: ${userQuery}`,
-                      },
-                    ],
-                  },
+                    {
+                        role: "user",
+                        parts: [
+                            {
+                                text: `${systemPrompt}\n\nUser Query: ${userQuery}`,
+                            },
+                        ],
+                    },
                 ],
-              });
-              
-              const text = result.text
-              
-           // 5. 파싱 
-let parsedRecipe = null;
+            });
+
+            const text = result.text
+
+            // 5. 파싱 
+            let parsedRecipe = null;
 try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("JSON pattern not found");
-    const data = JSON.parse(jsonMatch[0]);
-    const rawData = Array.isArray(data) ? data[0] : data;
 
-    // UI(renderRecipe)가 사용하는 필드명에 현재 언어 데이터를 매핑합니다.
+    // 🔴 수정된 부분: \u00A0(특수 공백)를 일반 공백으로 치환
+    const cleanJson = jsonMatch[0].replace(/\u00A0/g, " "); 
+    
+    const rawData = JSON.parse(cleanJson); // 치환된 텍스트로 파싱
+    const finalData = Array.isArray(rawData) ? rawData[0] : rawData;
+
+    // ... 나머지 로직 (동일)
     parsedRecipe = {
-        ...rawData,
-        // UI의 제목 부분 대응
-        name: rawData[`name_${currentLang}`] || rawData.name_ko,
-        description: rawData[`description_${currentLang}`] || rawData.description_ko,
-        
-        // UI가 'ingredients'를 맵핑하므로 현재 언어에 맞는 재료를 넣어줌
-        ingredients: rawData[`ingredients_${currentLang}`] || rawData.ingredients || [],
-        
-        // UI가 'instructions'를 맵핑하므로 현재 언어에 맞는 단계를 넣어줌
-        instructions: rawData[`steps_${currentLang}`] || rawData.steps_ko || rawData.steps || []
+        name: finalData[`name_${currentLang}`] || finalData.name || finalData.name_ko,
+        description: finalData[`description_${currentLang}`] || finalData.description || finalData.description_ko,
+        ingredients: finalData[`ingredients_${currentLang}`] || finalData.ingredients || finalData.ingredients_ko || [],
+        instructions: finalData[`steps_${currentLang}`] || finalData.instructions || finalData.steps_ko || finalData.steps || []
     };
 
     if (!parsedRecipe.name) throw new Error("Invalid structure");
+    setGeneratedRecipe(parsedRecipe);
+
 } catch (e) {
-    console.error("JSON 파싱 실패:", text);
+    console.error("JSON 파싱 실패:", e); // 'text' 대신 에러 객체를 출력하면 원인 파악이 더 쉽습니다.
     throw new Error("레시피 형식이 올바르지 않습니다.");
 }
-    
             // 6. 상태 업데이트
             setGeneratedRecipe(parsedRecipe);
             setIsRecipeSaved(false);
             setSystemMessageHandler(langConfig[currentLang].success_message, 'success');
-    
+
             // 7. Rate Limit 및 Firebase 업데이트
             const newCount = currentCount + 1;
             const newResetTime = (currentCount === 0 || rateLimit.resetTime < Date.now())
                 ? Date.now() + RATE_LIMIT_DURATION_MS
                 : rateLimit.resetTime;
-    
+
             const limitRef = doc(db, rateLimitCollectionPath(appId), userId);
             await setDoc(limitRef, {
                 count: newCount,
                 resetTime: newResetTime,
                 lastCall: serverTimestamp(),
             }, { merge: true });
-    
+
             setRateLimit({ count: newCount, resetTime: newResetTime });
-    
+
         } catch (error) {
             console.error("Generation API Error:", error);
             setSystemMessageHandler(`에러 발생: ${error.message}`, 'error');
@@ -531,82 +563,86 @@ try {
             </div>
         );
     };
-
+    const handleMenuClick = (menuItem) => {
+        // menuItem 객체에서 현재 언어에 맞는 이름을 추출
+        const selectedMenu = menuItem[`name_${currentLang}`] || menuItem.name;
+        setUserPrompt(selectedMenu); // 입력창에 현재 언어에 맞는 메뉴명 주입
+    };
     const renderRecipe = () => {
         if (!generatedRecipe) return null;
-      
-        const getSafeText = (item) => {
-          if (!item) return "";
-          if (typeof item === 'object') {
-            const name = item.name || item.item || item.name_ko || "";
-            const amount = item.amount || item.quantity || "";
-            return amount ? `${name} (${amount})` : name;
-          }
-          return String(item);
-        };
-
+    
+        // 현재 언어에 맞는 설명글 가져오기 (없으면 통합 필드 사용)
+        const displayDesc = generatedRecipe[`description_${currentLang}`] || generatedRecipe.description;
+        const displayIngredients = generatedRecipe.ingredients || generatedRecipe.ingredient || [];
+        
         return (
             <div className="mt-8 p-6 bg-white shadow-xl rounded-3xl border-2 border-indigo-100">
-              <h2 className="text-3xl font-extrabold mb-6 text-indigo-900 border-b-4 border-indigo-500 pb-2 inline-block">
-              <p className="text-gray-600 mb-6 italic">{generatedRecipe.description}</p>
-                {generatedRecipe.name_ko || generatedRecipe.name}
-              </h2>
-              
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* 재료 섹션 */}
-                <div className="bg-gray-50 p-5 rounded-2xl shadow-inner">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
-                    <span className="text-2xl">🛒</span> 재료 (Ingredients)
-                  </h3>
-                  <ul className="space-y-2">
-                    {generatedRecipe.ingredients?.map((ing, idx) => (
-                      <li key={idx} className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm text-gray-700 font-medium">
-                        {getSafeText(ing)}
-                      </li>
-                    ))}
-                  </ul>
+                <h2 className="text-2xl font-extrabold mb-2 text-indigo-900 border-b-4 border-indigo-500 pb-2 inline-block">
+                {generatedRecipe[`name_${currentLang}`] || generatedRecipe.name}
+                </h2>
+
+                <p className="text-base md:text-lg text-gray-600 mb-6 italic bg-indigo-50 p-4 rounded-xl leading-relaxed">
+                {displayDesc}
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    <div className="bg-gray-50 p-5 rounded-2xl shadow-inner">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
+                            <span className="text-2xl">🛒</span> {currentLang === 'ko' ? '재료' : (currentLang === 'de' ? 'Zutaten' : 'Ingredients')}
+                        </h3>
+                        <ul className="space-y-2">
+                        {displayIngredients.map((ing, idx) => (
+                            <li key={idx} className="p-2 bg-white rounded-lg border border-gray-100 shadow-sm text-sm font-medium text-gray-700">
+                                {typeof ing === 'object' ? (ing.item || ing.name) : ing}
+                            </li>
+                        ))}
+                    </ul>
+                    </div>
+
+                    {/* 조리 순서 섹션: generatedRecipe.instructions를 사용 */}
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
+                            <span className="text-2xl">🍳</span> {currentLang === 'ko' ? '조리 순서' : (currentLang === 'de' ? 'Schritte' : 'Steps')}
+                        </h3>
+                        <div className="space-y-4">
+                            {generatedRecipe.instructions?.map((step, idx) => (
+                                <div key={idx} className="flex gap-3 items-start">
+                                    <span className="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-1 text-xs font-bold">
+                                        {idx + 1}
+                                    </span>
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                        {typeof step === 'object' ? step.text : step}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-        
-                {/* 조리 순서 섹션 */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
-                    <span className="text-2xl">🍳</span> 조리 순서 (Steps)
-                  </h3>
-                  <div className="space-y-4">
-                    {generatedRecipe.instructions?.map((step, idx) => (
-                      <div key={idx} className="flex gap-3 items-start">
-                        <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 text-sm font-bold shadow-md">
-                          {idx + 1}
-                        </span>
-                        <p className="text-gray-700 leading-relaxed font-medium">
-                          {typeof step === 'object' ? step.text : step}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-        
-              {/* 💡 이 부분이 추가되었습니다: 저장 버튼 */}
-              <div className="mt-10 border-t pt-6">
-                {!isRecipeSaved ? (
-                  <button
-                    onClick={handleSaveRecipe}
-                    disabled={isLoading}
-                    className={`w-full py-4 rounded-2xl font-black text-xl shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
-                      ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
-                  >
-                    {isLoading ? '⏳ 처리 중...' : '🚀 레시피 저장하고 공유하기'}
-                  </button>
-                ) : (
-                  <div className="w-full py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold text-center border-2 border-dashed border-gray-300">
-                    ✅ 공유 목록에 저장되었습니다!
-                  </div>
-                )}
-              </div>
+
+                {/* 💡 이 부분이 추가되었습니다: 저장 버튼 */}
+                <div className="mt-10 border-t pt-6">
+    {!isRecipeSaved ? (
+        <button
+            onClick={handleSaveRecipe}
+            disabled={isLoading}
+            className={`w-full py-4 rounded-2xl font-black text-xl shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
+                ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
+        >
+            {isLoading ? (
+                currentLang === 'ko' ? '⏳ 처리 중...' : (currentLang === 'de' ? '⏳ Wird bearbeitet...' : '⏳ Processing...')
+            ) : (
+                currentLang === 'ko' ? '🚀 레시피 저장하기' : (currentLang === 'de' ? '🚀 Rezept speichern' : '🚀 Save Recipe')
+            )}
+        </button>
+    ) : (
+        <div className="w-full py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold text-center border-2 border-dashed border-gray-300">
+            {currentLang === 'ko' ? '✅ 저장되었습니다!' : (currentLang === 'de' ? '✅ Gespeichert!' : '✅ Saved!')}
+        </div>
+    )}
+</div>
             </div>
-          );
-        };
+        );
+    };
 
     const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -647,16 +683,22 @@ try {
                             {/* 베스트 10 추천 메뉴 버튼들 */}
                             <div className="max-w-4xl mx-auto mb-8">
                                 <div className="flex flex-wrap justify-center gap-3">
-                                    {BEST_MENU_K10.map((menu) => (
+                                    {BEST_MENU_K10.map((item) => (
                                         <button
-                                            key={menu.ko}
+                                            key={item.id}
                                             onClick={() => {
-                                                setUserPrompt(menu.ko); // 입력창에 메뉴명 넣기
+                                                // 현재 언어 설정에 맞는 이름을 가져와서 입력창에 주입
+                                                const displayName =
+                                                    currentLang === 'ko' ? item.name_ko :
+                                                        (currentLang === 'de' ? item.name_de : item.name_en);
+                                                setUserPrompt(displayName);
                                             }}
                                             className="px-4 py-2 bg-white border border-indigo-100 rounded-full shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-all text-sm font-bold flex items-center gap-2 active:scale-95"
                                         >
-                                            <span>{menu.icon}</span>
-                                            {currentLang === 'ko' ? menu.ko : menu.de}
+                                            <span>{item.icon}</span>
+                                            {/* 화면에 표시되는 글자 부분 */}
+                                            {currentLang === 'ko' ? item.name_ko :
+                                                (currentLang === 'de' ? item.name_de : item.name_en)}
                                         </button>
                                     ))}
                                 </div>
@@ -755,33 +797,33 @@ try {
                             <span>🔍</span> {t?.recent_title || "Recent Recipes"}
                         </h2>
                         <div className="grid gap-4 sm:grid-cols-2">
-    {recentRecipes.length > 0 ? (
-        recentRecipes.map((r) => {
-            const nameData = r[`name_${currentLang}`] || r.name_ko || r.name;
-            const finalName = typeof nameData === 'object' 
-                ? (nameData[currentLang] || nameData.ko || nameData.en || "Untitled") 
-                : (nameData || "Untitled");
-                return (
-                    <div
-                        key={r.id}
-                        onClick={() => setSelectedRecipe(r)}
-                        className="p-5 bg-white border-2 border-transparent rounded-xl shadow-sm cursor-pointer hover:border-indigo-500 transition-all group"
-                    >
-                        <h3 className="font-bold text-gray-800 group-hover:text-indigo-600 truncate text-lg">
-                            {finalName}
-                        </h3>
-                        <p className="text-gray-400 text-xs mt-2">
-                            {currentLang === 'ko' ? '레시피 보기' : 'View Recipe'} →
-                        </p>
-                    </div>
-                );
-            })
-        ) : (
-            <p className="col-span-2 text-center py-10 text-gray-400">
-                {currentLang === 'ko' ? '공유된 레시피를 불러오는 중...' : 'Loading recipes...'}
-            </p>
-        )}
-    </div>
+                            {recentRecipes.length > 0 ? (
+                                recentRecipes.map((r) => {
+                                    const nameData = r[`name_${currentLang}`] || r.name_ko || r.name;
+                                    const finalName = typeof nameData === 'object'
+                                        ? (nameData[currentLang] || nameData.ko || nameData.en || "Untitled")
+                                        : (nameData || "Untitled");
+                                    return (
+                                        <div
+                                            key={r.id}
+                                            onClick={() => setSelectedRecipe(r)}
+                                            className="p-5 bg-white border-2 border-transparent rounded-xl shadow-sm cursor-pointer hover:border-indigo-500 transition-all group"
+                                        >
+                                            <h3 className="font-bold text-gray-800 group-hover:text-indigo-600 truncate text-lg">
+                                                {finalName}
+                                            </h3>
+                                            <p className="text-gray-400 text-xs mt-2">
+                                                {currentLang === 'ko' ? '레시피 보기' : 'View Recipe'} →
+                                            </p>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <p className="col-span-2 text-center py-10 text-gray-400">
+                                    {currentLang === 'ko' ? '공유된 레시피를 불러오는 중...' : 'Loading recipes...'}
+                                </p>
+                            )}
+                        </div>
 
                         {/* 더 보기 버튼 */}
                         {hasMore && (
@@ -829,18 +871,26 @@ try {
                             <GermanMartTips lang={currentLang} />
                         </div>
                     </div>
+                    
                 )}
 
-                <Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
-            </div>
+<Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
 
-            {selectedRecipe && (
-                <RecipeModal
-                    recipe={selectedRecipe}
-                    onClose={() => setSelectedRecipe(null)}
-                />
-            )}
+{/* Modal이 떴을 때 배경을 살짝 어둡게 처리하는 로직이 RecipeModal 내부에 있는지 확인하세요 */}
+{selectedRecipe && (
+    <RecipeModal
+        recipe={selectedRecipe}
+        onClose={() => setSelectedRecipe(null)}
+        currentLang={currentLang}
+        t={t}
+        shareToKakao={shareToKakao}
+        shareToWhatsApp={shareToWhatsApp}
+    />
+)}
+            </div>
+            
         </div>
+        
     );
 
 };
