@@ -1,5 +1,5 @@
 const admin = require("firebase-admin");
-const FirecrawlApp = require("@mendable/firecrawl-js");
+const { default: FirecrawlApp } = require("@mendable/firecrawl-js");
 
 // GitHub Secrets에 저장된 이름과 '완벽히' 일치해야 합니다.
 const saData = process.env.VITE_FIREBASE_SERVICE_ACCOUNT;
