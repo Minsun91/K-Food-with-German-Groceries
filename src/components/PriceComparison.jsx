@@ -8,12 +8,19 @@ const RecipeModal = ({ recipe, onClose, currentLang, t }) => {
     const [prices, setPrices] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // 1. 실시간 가격 데이터 구독 (Firestore)
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, "prices", "latest"), (snapshot) => {
             if (snapshot.exists()) {
                 const remoteData = snapshot.data().data || [];
-                setPrices(remoteData);
+
+                const sortedData = [...remoteData].sort((a, b) => {
+                    // 가격에서 숫자만 추출하여 비교 (예: "5,99€" -> 5.99)
+                    const priceA = parseFloat(a.price.replace(/[^\d.,]/g, '').replace(',', '.'));
+                    const priceB = parseFloat(b.price.replace(/[^\d.,]/g, '').replace(',', '.'));
+                    return priceA - priceB;
+                });
+                
+                setPrices(sortedData);
             }
             setLoading(false);
         }, (error) => {
@@ -105,31 +112,44 @@ const RecipeModal = ({ recipe, onClose, currentLang, t }) => {
 
                         {/* 🇰🇷 한인마트 실시간 최저가 섹션 (Firecrawl 데이터 반영) */}
                         <div className="pt-6 border-t border-slate-100">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xl font-bold text-slate-800">🇰🇷 한인마트 최저가</h3>
-                                {loading && <span className="text-xs text-slate-400 animate-pulse">업데이트 중...</span>}
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col">
+                    <h3 className="text-xl font-bold text-slate-800">🇰🇷 한인마트 실시간 정보</h3>
+                    <p className="text-[10px] text-indigo-500 font-medium">Firecrawl AI가 매일 아침 업데이트합니다</p>
+                </div>
+                {loading && <span className="text-xs text-slate-400 animate-pulse">Checking prices...</span>}
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+                {prices.length > 0 ? (
+                    // [개선 2] slice 범위를 조금 늘리거나 스크롤 가능하게 변경
+                    prices.slice(0, 5).map((p, idx) => (
+                        <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer" 
+                           className="group flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl transition-all hover:bg-white hover:border-indigo-300 hover:shadow-md">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${martThemes[p.mart] || 'border-slate-200'}`}>
+                                        {p.mart}
+                                    </span>
+                                    {idx === 0 && (
+                                        <span className="bg-yellow-400 text-[9px] font-black px-1.5 py-0.5 rounded text-yellow-900 animate-bounce">BEST</span>
+                                    )}
+                                </div>
+                                <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{p.item}</span>
                             </div>
-                            
-                            <div className="grid grid-cols-1 gap-3">
-                                {prices.length > 0 ? (
-                                    prices.slice(0, 3).map((p, idx) => (
-                                        <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer" 
-                                           className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-200 transition-all">
-                                            <div className="flex flex-col">
-                                                <span className={`w-fit px-2 py-0.5 rounded-full text-[9px] font-black border mb-1 ${martThemes[p.mart] || 'border-slate-200'}`}>{p.mart}</span>
-                                                <span className="text-sm font-bold text-slate-700">{p.item}</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-lg font-black text-indigo-600">€{p.price}</span>
-                                                <p className="text-[10px] text-slate-300">Direkt Link ↗</p>
-                                            </div>
-                                        </a>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-slate-400 text-center py-4">가격을 불러오는 중이거나 데이터가 없습니다.</p>
-                                )}
+                            <div className="text-right">
+                                <span className="text-lg font-black text-slate-800 group-hover:text-indigo-600">€{p.price}</span>
+                                <p className="text-[10px] text-slate-400 group-hover:text-indigo-400">Jetzt kaufen ↗</p>
                             </div>
-                        </div>
+                        </a>
+                    ))
+                ) : (
+                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p className="text-sm text-slate-400">데이터를 불러오는 중입니다.</p>
+                    </div>
+                )}
+            </div>
+        </div>
 
                         {/* 🍳 조리 순서 */}
                         <div>

@@ -19,7 +19,7 @@ async function updatePrices() {
   const marts = [
     { name: "한독몰", url: "https://handokmall.de/search?q=" },
     { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-    { name: "다와요", url: "https://dawayo.de/ko/search?search_query=" }
+    { name: "다와요", url: "https://dawayo.de/ko" }
   ];
   
   const targetItems = ["쌀", "김치", "신라면", "두부", "고추장", "만두", "불닭"];
