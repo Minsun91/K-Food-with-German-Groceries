@@ -14,6 +14,6 @@ jobs:
           npm install firebase-admin @mendable/firecrawl-js
       - name: Run script
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.VITE_FIREBASE_SERVICE_ACCOUNT }}
-          FIRECRAWL_API_KEY: ${{ secrets.VITE_FIRECRAWL_API_KEY }}
+          VITE_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.VITE_FIREBASE_SERVICE_ACCOUNT }}
+          VITE_FIRECRAWL_API_KEY: ${{ secrets.VITE_FIRECRAWL_API_KEY }}
         run: node scripts/fetch_prices.cjs

@@ -1,22 +1,21 @@
 const admin = require("firebase-admin");
 const FirecrawlApp = require("@mendable/firecrawl-js");
 
-// 1. 환경 변수 확인 (GitHub Actions의 env 설정과 일치해야 함)
-const saData = process.env.FIREBASE_SERVICE_ACCOUNT;
-const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
+// GitHub Secrets에 저장된 이름과 '완벽히' 일치해야 합니다.
+const saData = process.env.VITE_FIREBASE_SERVICE_ACCOUNT;
+const FIRECRAWL_API_KEY = process.env.VITE_FIRECRAWL_API_KEY;
 
 if (!saData) {
-  throw new Error("에러: FIREBASE_SERVICE_ACCOUNT 환경 변수가 없습니다.");
+  throw new Error("에러: VITE_FIREBASE_SERVICE_ACCOUNT 환경 변수가 없습니다.");
 }
 
-// 2. Firebase Admin 초기화 (중복 호출 방지)
+// 초기화
 try {
   admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(saData))
   });
-  console.log("Firebase Admin 초기화 성공");
-} catch (error) {
-  console.error("Firebase 초기화 에러:", error);
+} catch (e) {
+  console.error("초기화 실패:", e.message);
   process.exit(1);
 }
 
