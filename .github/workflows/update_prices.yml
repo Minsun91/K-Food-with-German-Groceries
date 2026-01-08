@@ -1,0 +1,19 @@
+name: Update Mart Prices
+on:
+  schedule:
+    - cron: '0 0 * * *' # 매일 한국 시간 오전 9시 (UTC 00:00)
+  workflow_dispatch: # 수동 실행 버튼 생성
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          npm install firebase-admin @mendable/firecrawl-js
+      - name: Run script
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+        run: node scripts/fetch_prices.js

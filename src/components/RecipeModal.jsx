@@ -1,4 +1,9 @@
 import React from 'react';
+import React, { useState, useEffect } from 'react';
+// 💡 상대 경로 확인: src/components/PriceComparison.jsx 기준이라면 ../../firebase 가 맞을 수 있습니다.
+import { db } from '../firebase'; 
+import { doc, onSnapshot } from 'firebase/firestore';
+
 const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
 
     // WhatsApp 공유 함수
@@ -72,6 +77,26 @@ const RecipeModal = ({ recipe,
     const displayIngredients = recipe[`ingredients_${currentLang}`] || recipe.ingredients || recipe.ingredient || [];
     const displaySteps = recipe[`steps_${currentLang}`] || recipe.instructions || recipe.steps || [];
 
+    const PriceComparison = () => {
+        const [prices, setPrices] = useState([]);
+        const [loading, setLoading] = useState(true);
+      
+        useEffect(() => {
+          // 💡 Firestore의 'prices' 컬렉션 안의 'latest' 문서를 실시간 감시합니다.
+          const unsubscribe = onSnapshot(doc(db, "prices", "latest"), (snapshot) => {
+            if (snapshot.exists()) {
+              const remoteData = snapshot.data().data; // 서버에서 올린 { data: [...] } 구조
+              setPrices(remoteData);
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error("Firestore 구독 에러:", error);
+            setLoading(false);
+          });
+      
+          return () => unsubscribe();
+        }, []);
+        
     return (
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
              onClick={onClose}>
@@ -164,6 +189,6 @@ const RecipeModal = ({ recipe,
             </div>
         </div>
     );
-};
+};}
 
-export default RecipeModal;
+export default RecipeModal

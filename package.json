@@ -11,7 +11,9 @@
     },
     "dependencies": {
         "@google/genai": "^1.34.0",
+        "@mendable/firecrawl-js": "^4.10.0",
         "firebase": "^10.12.3",
+        "firebase-admin": "^13.6.0",
         "lucide-react": "^0.555.0",
         "next": "^16.1.1",
         "react": "^19.2.3",
