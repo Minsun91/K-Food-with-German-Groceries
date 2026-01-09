@@ -23,32 +23,40 @@ const marts = [
   { name: "한독몰", url: "https://handokmall.de/search?q=" },
   { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
   { name: "다와요", url: "https://dawayo.de/ko/search?controller=search&s=" },
-  { name: "Go Asia", url: "https://goasia.net/de/search?sSearch=" },
-  { name: "K-Shop", url: "https://k-shop.eu/de/search?sSearch=" }
+  { name: "REWE", url: "https://www.rewe.de/suche/uebersicht?searchTerm=" },
+  { name: "Knuspr", url: "https://www.knuspr.de/suche?q=" },
+  { name: "EDEKA24", url: "https://www.edeka24.de/#search:query=" }
 ];
 
-const targetItems = ["쌀 10kg", "신라면 5팩", "불닭볶음면", "비비고 왕교자", "종가집 김치"];
+const targetItems = [
+  { ko: "쌀", search: "Reis 10kg" },
+  { ko: "신라면", search: "Shin Ramyun" },
+  { ko: "불닭볶음면", search: "Buldak" },
+  { ko: "비비고 만두", search: "Bibigo Mandu" },
+  { ko: "김치", search: "Kimchi" },
+  { ko: "간장", search: "Sojasauce" },
+  { ko: "쌈장", search: "Ssamjang" },
+  { ko: "고추장", search: "Gochujang" },
+  { ko: "두부", search: "Tofu" }
+];
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 스크래핑 시작...");
+  console.log("🚀 마트별 검색 및 스크래핑 시작...");
 
-  for (const mart of marts) {
-    console.log(`\n--- ${mart.name} 작업 시작 ---`);
-    
-    // 너무 많은 요청을 방지하기 위해 상위 5개만 검색
-    const itemsToSearch = targetItems.slice(0, 5); 
+  for (const itemObj of targetItems) {
+    console.log(`\n--- [품목: ${itemObj.ko}] 비교 데이터 수집 ---`);
 
-    for (const item of itemsToSearch) {
+    for (const mart of marts) {
       try {
-        const searchUrl = `${mart.url}${encodeURIComponent(item)}`;
-        console.log(`[${mart.name}] "${item}" 검색 중...`);
-
+        const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
+        
         const extractResult = await app.extract({
           urls: [searchUrl],
-          // 프롬프트 보강: 통화 기호 제거 및 숫자 형식 통일 요청
-          prompt: `이 검색 결과 페이지에서 '${item}'과 가장 유사한 상품 딱 하나를 찾아줘. 
-                   상품 이름, 가격(숫자와 쉼표만, 예: 15.99), 그리고 상세 링크(전체 경로)를 알려줘.`,
+          prompt: `${itemObj.search} 상품 1개만 골라줘. 
+                   1. 이름에서 따옴표 제거. 
+                   2. 가격은 숫자만(예: 5.99). 
+                   3. 링크는 https://로 시작하는 전체 URL.`,
           schema: {
             type: "object",
             properties: {
@@ -61,7 +69,7 @@ async function updatePrices() {
                     price: { type: "string" },
                     link: { type: "string" }
                   },
-                  required: ["item", "price"]
+                  required: ["item", "price", "link"]
                 }
               }
             }
@@ -69,29 +77,27 @@ async function updatePrices() {
         });
 
         if (extractResult.success && extractResult.data?.products?.length > 0) {
-          const products = extractResult.data.products;
-          const dataWithMart = products.map(p => ({
-            ...p,
+          const product = extractResult.data.products[0];
+          results.push({
+            ...product,
             mart: mart.name,
+            // 🔥 여기서 searchKeyword를 '한글'로 저장해야 프론트에서 '# 신라면'으로 묶입니다!
+            searchKeyword: itemObj.ko, 
             updatedAt: new Date().toISOString()
-          }));
-          results.push(...dataWithMart);
-          console.log(`✅ ${mart.name} - ${item} 성공!`);
+          });
         }
       } catch (e) {
-        console.error(`❌ ${mart.name} (${item}) 에러:`, e.message);
+        console.error(`❌ ${mart.name} 에러:`, e.message);
       }
     }
   }
 
-  if (results.length > 0) {
+if (results.length > 0) {
     await db.collection("prices").doc("latest").set({ 
       data: results,
       lastGlobalUpdate: new Date().toISOString()
     });
-    console.log("\n✨ 모든 데이터 업데이트 완료!");
-  } else {
-    console.log("\n⚠️ 최종 추출된 데이터가 없습니다.");
+    console.log("\n✨ 모든 마트 비교 데이터 업데이트 완료!");
   }
 }
 
