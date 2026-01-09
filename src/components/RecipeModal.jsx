@@ -1,6 +1,3 @@
-import React from 'react';
-import React, { useState, useEffect } from 'react';
-// 💡 상대 경로 확인: src/components/PriceComparison.jsx 기준이라면 ../../firebase 가 맞을 수 있습니다.
 import { db } from '../firebase'; 
 import { doc, onSnapshot } from 'firebase/firestore';
 
