@@ -40,6 +40,15 @@ const langConfig = {
         save_button: "레시피 저장",
         saved_button: "저장됨 ✅",
         all_steps_title: "전체 언어 조리 순서 (All Language Steps)",
+        price_title: "품목별 최저가",
+        price_subtitle: "주요 품목의 실시간 최저가 정보를 확인하세요.",
+        last_update: "최근 업데이트",
+        coffee_title: "여러분의 장바구니 물가를 덜어드리는 Kfoodtracker입니다.",
+        coffee_desc: "보내주시는 따뜻한 커피 한 잔은 서버 유지비에 크나큰 힘이 됩니다!",
+        coffee_button: "커피 사주기",
+        mart_compare: "개 마트 비교",
+        no_price_data: "비교 가능한 데이터가 아직 없습니다.",
+        best_price: "최저가"
     },
     en: {
         name: "English",
@@ -60,6 +69,15 @@ const langConfig = {
         save_button: "Save Recipe",
         saved_button: "Saved ✅",
         all_steps_title: "All Language Steps (Kochschritte in allen Sprachen)",
+        price_title: "Lowest Prices by Item",
+        price_subtitle: "Check real-time lowest price information for key items.",
+        last_update: "Last Updated",
+        coffee_title: "I'm Kfoodtracker, helping you save on your grocery bills.",
+        coffee_desc: "A warm cup of coffee is a great help for server maintenance costs!",
+        coffee_button: "Buy me a coffee",
+        mart_compare: "marts compared",
+        no_price_data: "No comparison data available yet.",
+        best_price: "Best Price"
     },
     de: {
         name: "Deutsch",
@@ -80,22 +98,31 @@ const langConfig = {
         save_button: "Rezept speichern",
         saved_button: "Gespeichert ✅",
         all_steps_title: "Kochschritte in allen Sprachen",
+        price_title: "Tiefstpreise nach Artikeln",
+        price_subtitle: "Prüfen Sie Echtzeit-Tiefstpreis-Informationen für wichtige Artikel.",
+        last_update: "Zuletzt aktualisiert",
+        coffee_title: "Ich bin Kfoodtracker und helfe euch, eure Lebensmittelkosten zu senken.",
+        coffee_desc: "Ein kleiner Kaffee hilft mir, die Serverkosten zu decken!",
+        coffee_button: "Kaffee spendieren",
+        mart_compare: "Märkte im Vergleich",
+        no_price_data: "Noch keine Vergleichsdaten verfügbar.",
+        best_price: "Bester Preis"
     },
 };
 
-    // WhatsApp 공유 함수
-    const shareToWhatsApp = (recipe) => {
-        if (!recipe?.id) {
-            alert(currentLang === 'de' ? "Speichere das Rezept zuerst!" : "Save the recipe first!");
-            return;
-        }
-        const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=de`;
-        const recipeName = recipe.name_de || recipe.name_en || recipe.name_ko;
-        const text = `${recipeName}\nProbier dieses Rezept aus! \n\n ${shareUrl}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    };
+// WhatsApp 공유 함수
+const shareToWhatsApp = (recipe) => {
+    if (!recipe?.id) {
+        alert(currentLang === 'de' ? "Speichere das Rezept zuerst!" : "Save the recipe first!");
+        return;
+    }
+    const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=de`;
+    const recipeName = recipe.name_de || recipe.name_en || recipe.name_ko;
+    const text = `${recipeName}\nProbier dieses Rezept aus! \n\n ${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+};
 
-const shareToKakao = (recipe, currentLang) => { 
+const shareToKakao = (recipe, currentLang) => {
     const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
 
     if (!recipe || !recipe.id) {
@@ -373,32 +400,32 @@ const App = () => {
             console.error("저장 불가 조건:", { generatedRecipe, isRecipeSaved, db, userId });
             return;
         }
-    
+
         try {
             const recipesRef = collection(db, savedRecipesCollectionPath(appId));
-            
+
             const recipeData = {
-                ...generatedRecipe, 
-                
+                ...generatedRecipe,
+
                 // ✅ UI가 바로 읽을 수 있는 공통 필드 (현재 언어 기준)
                 name: generatedRecipe.name || generatedRecipe[`name_${currentLang}`],
                 description: generatedRecipe.description || generatedRecipe[`description_${currentLang}`],
                 ingredients: generatedRecipe.ingredients || generatedRecipe[`ingredients_${currentLang}`],
                 instructions: generatedRecipe.instructions || generatedRecipe[`steps_${currentLang}`],
-                
+
                 // ✅ 관리 및 추적용 필드
-                timestamp: serverTimestamp(), 
+                timestamp: serverTimestamp(),
                 userId: userId,      // 작성자 ID
                 savedBy: userId,     // 저장한 사람 (질문하신 내용 추가)
                 lang: currentLang    // 저장 당시의 언어 설정
             };
-    
+
             await addDoc(recipesRef, recipeData);
 
             setIsRecipeSaved(true);
             setSystemMessageHandler(
-                currentLang === 'ko' ? "레시피가 저장되었습니다!" : 
-                (currentLang === 'de' ? "Rezept gespeichert!" : "Recipe saved successfully!"), 
+                currentLang === 'ko' ? "레시피가 저장되었습니다!" :
+                    (currentLang === 'de' ? "Rezept gespeichert!" : "Recipe saved successfully!"),
                 "success"
             );
         } catch (error) {
@@ -458,31 +485,31 @@ const App = () => {
 
             // 5. 파싱 
             let parsedRecipe = null;
-try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("JSON pattern not found");
+            try {
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) throw new Error("JSON pattern not found");
 
-    // 🔴 수정된 부분: \u00A0(특수 공백)를 일반 공백으로 치환
-    const cleanJson = jsonMatch[0].replace(/\u00A0/g, " "); 
-    
-    const rawData = JSON.parse(cleanJson); // 치환된 텍스트로 파싱
-    const finalData = Array.isArray(rawData) ? rawData[0] : rawData;
+                // 🔴 수정된 부분: \u00A0(특수 공백)를 일반 공백으로 치환
+                const cleanJson = jsonMatch[0].replace(/\u00A0/g, " ");
 
-    // ... 나머지 로직 (동일)
-    parsedRecipe = {
-        name: finalData[`name_${currentLang}`] || finalData.name || finalData.name_ko,
-        description: finalData[`description_${currentLang}`] || finalData.description || finalData.description_ko,
-        ingredients: finalData[`ingredients_${currentLang}`] || finalData.ingredients || finalData.ingredients_ko || [],
-        instructions: finalData[`steps_${currentLang}`] || finalData.instructions || finalData.steps_ko || finalData.steps || []
-    };
+                const rawData = JSON.parse(cleanJson); // 치환된 텍스트로 파싱
+                const finalData = Array.isArray(rawData) ? rawData[0] : rawData;
 
-    if (!parsedRecipe.name) throw new Error("Invalid structure");
-    setGeneratedRecipe(parsedRecipe);
+                // ... 나머지 로직 (동일)
+                parsedRecipe = {
+                    name: finalData[`name_${currentLang}`] || finalData.name || finalData.name_ko,
+                    description: finalData[`description_${currentLang}`] || finalData.description || finalData.description_ko,
+                    ingredients: finalData[`ingredients_${currentLang}`] || finalData.ingredients || finalData.ingredients_ko || [],
+                    instructions: finalData[`steps_${currentLang}`] || finalData.instructions || finalData.steps_ko || finalData.steps || []
+                };
 
-} catch (e) {
-    console.error("JSON 파싱 실패:", e); // 'text' 대신 에러 객체를 출력하면 원인 파악이 더 쉽습니다.
-    throw new Error("레시피 형식이 올바르지 않습니다.");
-}
+                if (!parsedRecipe.name) throw new Error("Invalid structure");
+                setGeneratedRecipe(parsedRecipe);
+
+            } catch (e) {
+                console.error("JSON 파싱 실패:", e); // 'text' 대신 에러 객체를 출력하면 원인 파악이 더 쉽습니다.
+                throw new Error("레시피 형식이 올바르지 않습니다.");
+            }
             // 6. 상태 업데이트
             setGeneratedRecipe(parsedRecipe);
             setIsRecipeSaved(false);
@@ -570,19 +597,19 @@ try {
     };
     const renderRecipe = () => {
         if (!generatedRecipe) return null;
-    
+
         // 현재 언어에 맞는 설명글 가져오기 (없으면 통합 필드 사용)
         const displayDesc = generatedRecipe[`description_${currentLang}`] || generatedRecipe.description;
         const displayIngredients = generatedRecipe.ingredients || generatedRecipe.ingredient || [];
-        
+
         return (
             <div className="mt-8 p-6 bg-white shadow-xl rounded-3xl border-2 border-indigo-100">
                 <h2 className="text-2xl font-extrabold mb-2 text-indigo-900 border-b-4 border-indigo-500 pb-2 inline-block">
-                {generatedRecipe[`name_${currentLang}`] || generatedRecipe.name}
+                    {generatedRecipe[`name_${currentLang}`] || generatedRecipe.name}
                 </h2>
 
                 <p className="text-base md:text-lg text-gray-600 mb-6 italic bg-indigo-50 p-4 rounded-xl leading-relaxed">
-                {displayDesc}
+                    {displayDesc}
                 </p>
 
                 <div className="grid md:grid-cols-2 gap-8">
@@ -591,12 +618,12 @@ try {
                             <span className="text-2xl">🛒</span> {currentLang === 'ko' ? '재료' : (currentLang === 'de' ? 'Zutaten' : 'Ingredients')}
                         </h3>
                         <ul className="space-y-2">
-                        {displayIngredients.map((ing, idx) => (
-                            <li key={idx} className="p-2 bg-white rounded-lg border border-gray-100 shadow-sm text-sm font-medium text-gray-700">
-                                {typeof ing === 'object' ? (ing.item || ing.name) : ing}
-                            </li>
-                        ))}
-                    </ul>
+                            {displayIngredients.map((ing, idx) => (
+                                <li key={idx} className="p-2 bg-white rounded-lg border border-gray-100 shadow-sm text-sm font-medium text-gray-700">
+                                    {typeof ing === 'object' ? (ing.item || ing.name) : ing}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
 
                     {/* 조리 순서 섹션: generatedRecipe.instructions를 사용 */}
@@ -621,25 +648,25 @@ try {
 
                 {/* 💡 이 부분이 추가되었습니다: 저장 버튼 */}
                 <div className="mt-10 border-t pt-6">
-    {!isRecipeSaved ? (
-        <button
-            onClick={handleSaveRecipe}
-            disabled={isLoading}
-            className={`w-full py-4 rounded-2xl font-black text-xl shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
+                    {!isRecipeSaved ? (
+                        <button
+                            onClick={handleSaveRecipe}
+                            disabled={isLoading}
+                            className={`w-full py-4 rounded-2xl font-black text-xl shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
                 ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
-        >
-            {isLoading ? (
-                currentLang === 'ko' ? '⏳ 처리 중...' : (currentLang === 'de' ? '⏳ Wird bearbeitet...' : '⏳ Processing...')
-            ) : (
-                currentLang === 'ko' ? '🚀 레시피 저장하기' : (currentLang === 'de' ? '🚀 Rezept speichern' : '🚀 Save Recipe')
-            )}
-        </button>
-    ) : (
-        <div className="w-full py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold text-center border-2 border-dashed border-gray-300">
-            {currentLang === 'ko' ? '✅ 저장되었습니다!' : (currentLang === 'de' ? '✅ Gespeichert!' : '✅ Saved!')}
-        </div>
-    )}
-</div>
+                        >
+                            {isLoading ? (
+                                currentLang === 'ko' ? '⏳ 처리 중...' : (currentLang === 'de' ? '⏳ Wird bearbeitet...' : '⏳ Processing...')
+                            ) : (
+                                currentLang === 'ko' ? '🚀 레시피 저장하기' : (currentLang === 'de' ? '🚀 Rezept speichern' : '🚀 Save Recipe')
+                            )}
+                        </button>
+                    ) : (
+                        <div className="w-full py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold text-center border-2 border-dashed border-gray-300">
+                            {currentLang === 'ko' ? '✅ 저장되었습니다!' : (currentLang === 'de' ? '✅ Gespeichert!' : '✅ Saved!')}
+                        </div>
+                    )}
+                </div>
             </div>
         );
     };
@@ -653,214 +680,164 @@ try {
             <div className="relative z-10 max-w-4xl mx-auto"></div>
             {/* <script src="https://cdn.tailwindcss.com"></script> */}
 
-            <div className="max-w-4xl mx-auto">
-                {/* 헤더 부분 */}
-                <header className="text-center py-8 bg-white rounded-xl shadow-xl mb-6 border-t-4 border-indigo-600">
-                    <h1 className="text-4xl font-extrabold text-indigo-800 px-4">{t?.title || "Recipe Generator"}</h1>
-                    <div className="mt-4 flex justify-center space-x-2">
-                        {['ko', 'en', 'de'].map(lang => (
-                            <button key={lang} onClick={() => setCurrentLang(lang)}
-                                className={`px-4 py-2 text-sm font-semibold rounded-full ${currentLang === lang ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                                {langConfig[lang]?.name || lang}
-                            </button>
-                        ))}
-                    </div>
-                </header>
+            <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans pb-20">
+    {/* 1. 최상단 헤더: 로고와 언어 선택만 깔끔하게 */}
+    <header className="bg-white border-b border-slate-100">
+      <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+        <h1 className="text-xl font-black text-indigo-900">
+          K-Food <span className="text-indigo-500 font-light">Tracker</span>
+        </h1>
+        <div className="flex bg-slate-100 p-1 rounded-xl">
+          {['ko', 'en', 'de'].map(lang => (
+            <button 
+              key={lang} 
+              onClick={() => setCurrentLang(lang)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                currentLang === lang ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+              }`}
+            >
+              {lang.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
+    <main className="max-w-6xl mx-auto px-4 py-6">
+      {/* 2. 커피 후원 배너: 로고 바로 아래 한 줄로 (기존 디자인 복구) */}
+      <div className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between border border-amber-100/50 shadow-sm gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">☕</span>
+          <div className="text-left">
+            <p className="text-sm font-black text-amber-900 leading-tight">{t?.coffee_title}</p>
+            <p className="text-[11px] text-amber-700 mt-0.5 font-medium">{t?.coffee_desc}</p>
+          </div>
+        </div>
+        <a 
+          href="https://buymeacoffee.com/kfoodfromgermany" 
+          target="_blank" 
+          className="w-full sm:w-auto bg-amber-800 text-white px-6 py-2.5 rounded-xl text-xs font-black hover:bg-amber-900 transition-all text-center shadow-md shrink-0"
+        >
+          {t?.coffee_button}
+        </a>
+      </div>
 
-                <main>
-                    {/* 시스템 메시지 */}
-                    {systemMessage && (
-                        <div className="p-4 mb-4 rounded-lg bg-blue-100 text-blue-700 text-center shadow-md">
-                            {systemMessage.message}
-                        </div>
-                    )}
+      {/* 3. 메인 콘텐츠: 좌우 너비 동일 (w-full / grid-cols-2) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        
+        {/* [좌측] 레시피 생성 영역 */}
+        <div className="w-full space-y-6">
+          <section className="bg-white rounded-[2rem] border border-slate-100 p-6 md:p-8 shadow-sm h-full">
+            <div className="mb-6">
+              {/* 우측과 동일한 타이틀 사이즈 (text-2xl) */}
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                🍳 {t?.title}
+              </h2>
+              <p className="text-sm text-slate-400 font-medium mt-1">{t?.subtitle}</p>
+            </div>
+            
+            {/* 메뉴 버튼 그룹 */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {BEST_MENU_K10.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setUserPrompt(currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en))}
+                  className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-600 hover:border-indigo-300 transition-all active:scale-95"
+                >
+                  {item.icon} {currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en)}
+                </button>
+              ))}
+            </div>
 
-                    {/* 입력창 */}
-                    <div className="bg-white p-6 rounded-xl shadow-lg mb-6 border">
+            <textarea
+              className="w-full p-5 bg-slate-50 border-none rounded-2xl resize-none focus:ring-2 focus:ring-indigo-500 min-h-[140px] text-sm"
+              placeholder={t?.placeholder}
+              value={userPrompt}
+              onChange={(e) => setUserPrompt(e.target.value)}
+            />
+            
+            <button 
+              onClick={handleGenerateRecipe}
+              disabled={isLoading}
+              className="w-full mt-4 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50"
+            >
+              {isLoading ? t?.button_loading : t?.button_ready}
+            </button>
+            <div className="mt-4">{getRateLimitMessage()}</div>
+          </section>
 
-                        {/* 버튼 및 레이트 리밋 영역 */}
-                        <div className="bg-white/80 backdrop-blur-sm p-8 rounded-[2rem] shadow-xl shadow-indigo-100/50 border border-indigo-50/50 mb-10 transition-all focus-within:shadow-2xl focus-within:shadow-indigo-200/50">
-                            {/* 베스트 10 추천 메뉴 버튼들 */}
-                            <div className="max-w-4xl mx-auto mb-8">
-                                <div className="flex flex-wrap justify-center gap-3">
-                                    {BEST_MENU_K10.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => {
-                                                // 현재 언어 설정에 맞는 이름을 가져와서 입력창에 주입
-                                                const displayName =
-                                                    currentLang === 'ko' ? item.name_ko :
-                                                        (currentLang === 'de' ? item.name_de : item.name_en);
-                                                setUserPrompt(displayName);
-                                            }}
-                                            className="px-4 py-2 bg-white border border-indigo-100 rounded-full shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-all text-sm font-bold flex items-center gap-2 active:scale-95"
-                                        >
-                                            <span>{item.icon}</span>
-                                            {/* 화면에 표시되는 글자 부분 */}
-                                            {currentLang === 'ko' ? item.name_ko :
-                                                (currentLang === 'de' ? item.name_de : item.name_en)}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <textarea
-                                className="w-full p-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl resize-none focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-lg"
-                                rows="3"
-                                value={userPrompt}
-                                onChange={(e) => setUserPrompt(e.target.value)}
-                                placeholder={t?.placeholder}
-                            />
+          {/* 최근 레시피 목록 (좌측 너비에 맞춰 자동 정렬) */}
+          <section className="mt-12 w-full">
+  <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+    ✨ {t?.recent_title || "최근 생성된 레시피"}
+  </h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {recentRecipes.length > 0 ? (
+    recentRecipes.map((r) => {
+      // 1. 제목 실종 방지: 모든 필드를 순차적으로 확인 (중요!)
+      const recipeTitle = r[`name_${currentLang}`] || r.name_ko || r.name_en || r.name_de || r.name || "Untitled Recipe";
+      
+      return (
+        <div 
+          key={r.id} 
+          // 2. 모달 열기 이벤트 보강
+          onClick={() => {
+            console.log("Opening recipe:", r); // 값이 잘 찍히는지 F12에서 확인 가능
+            setSelectedRecipe(r);
+          }}
+          className="group p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[110px] active:scale-[0.98]"
+        >
+          <h3 className="font-bold text-slate-700 group-hover:text-indigo-600 truncate text-base">
+            {recipeTitle}
+          </h3>
+          
+          <div className="flex justify-between items-center mt-4">
+            <span className="text-[11px] text-slate-400 font-black uppercase tracking-widest">
+              {currentLang === 'ko' ? '레시피 보기' : (currentLang === 'de' ? 'Rezept ansehen' : 'View Recipe')}
+            </span>
+            <span className="text-indigo-500 transform group-hover:translate-x-1 transition-transform font-bold">
+              →
+            </span>
+          </div>
+        </div>
+      );
+    })
+  ) : (
+    <div className="col-span-full py-12 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+      <p className="text-slate-400 text-sm font-medium italic">
+        {currentLang === 'ko' ? '아직 생성된 레시피가 없습니다.' : 'No recipes yet.'}
+      </p>
+    </div>
+  )}
+</div>
 
-                            {/* 광고 슬롯 (AdSense 등을 넣을 자리) */}
-                            <div className="w-full mt-6 py-4 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center">
-                                <span className="text-xs text-slate-400 font-medium uppercase tracking-widest">
+{/* 3. 더보기 버튼 복구 (이 코드가 리스트 바로 아래 있어야 함) */}
+{hasMore && (
+  <div className="mt-10 flex justify-center">
+    <button
+      onClick={() => fetchRecipes(false)}
+      disabled={isMoreLoading}
+      className="px-10 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-50 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+    >
+      {isMoreLoading ? "Loading..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")}
+    </button>
+  </div>
+)}
+</section>
+        </div>
 
-                                </span>
-                                {/* 나중에 이곳에 구글 애드센스 코드를 넣으시면 됩니다 */}
-                            </div>
+        {/* [우측] 최저가 비교 영역 (좌측과 동일한 너비) */}
+        <div className="w-full">
+          <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                     
+            {/* PriceComparison 컴포넌트가 우측 박스 너비에 꽉 차게 렌더링됨 */}
+            <div className="bg-white">
+              <PriceComparison currentLang={currentLang} langConfig={langConfig} />
+            </div>
+          </section>
+        </div>
 
-
-
-                            <div className="mt-8 flex flex-col items-center gap-5">
-                                <button
-                                    onClick={handleGenerateRecipe}
-                                    disabled={isLoading || !userPrompt}
-                                    className="group relative px-12 py-4 bg-slate-900 text-white font-bold rounded-2xl overflow-hidden transition-all hover:bg-indigo-600 active:scale-95 disabled:bg-slate-300 shadow-xl shadow-slate-200 hover:shadow-indigo-200"
-                                >
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        {isLoading ? (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="animate-bounce">⏳</span>
-                                                <span>{currentLang === 'ko' ? '조합 중...' : 'Mixing...'}</span>
-                                            </div>
-                                        ) : <><span>✨</span> {t?.button_ready}</>}
-                                    </span>
-                                </button>
-                                {getRateLimitMessage()}
-                            </div>
-
-                        </div>
-
-                    </div>
-                    {/* 생성된 레시피 결과 */}
-                    {typeof renderRecipe === 'function' && renderRecipe()}
-
-                    {selectedRecipe && selectedRecipe.ingredients && (
-                        <div className="max-w-4xl mx-auto px-6 mb-8">
-                            <h3 className="text-lg font-bold mb-4">🛒 마트에서 재료 찾기</h3>
-                            <div className="grid gap-2">
-                                {Array.isArray(selectedRecipe.ingredients) ? (
-                                    selectedRecipe.ingredients.map((ing, index) => {
-                                        const name = typeof ing === 'object' ? ing.item : ing;
-                                        const amount = typeof ing === 'object' ? ing.quantity : '';
-                                        const note = typeof ing === 'object' ? ing.notes : '';
-
-                                        return (
-                                            <div key={index} className="flex justify-between items-center p-4 border-b bg-white rounded-xl shadow-sm hover:bg-slate-50 transition-colors">
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-slate-800">{name}</span>
-                                                        {amount && <span className="text-sm text-indigo-500 font-medium">({amount})</span>}
-                                                    </div>
-                                                    {note && <span className="text-[11px] text-gray-400 mt-1">{note}</span>}
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    <a
-                                                        href={getMarketSearchLink('lidl', name)}
-                                                        target="_blank"
-                                                        className="text-[10px] bg-[#0050aa] text-white px-3 py-1.5 rounded-lg font-bold hover:brightness-110 transition"
-                                                    >
-                                                        Lidl
-                                                    </a>
-                                                    <a
-                                                        href={getMarketSearchLink('rewe', name)}
-                                                        target="_blank"
-                                                        className="text-[10px] bg-[#cc071e] text-white px-3 py-1.5 rounded-lg font-bold hover:brightness-110 transition"
-                                                    >
-                                                        Rewe
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="text-center py-4 text-gray-400">재료 정보를 불러오는 중입니다...</div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                    {/* 최근 레시피 목록 (안전하게 처리) */}
-                    <div className="mt-12 mb-8">
-
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <span>🔍</span> {t?.recent_title || "Recent Recipes"}
-                        </h2>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {recentRecipes.length > 0 ? (
-                                recentRecipes.map((r) => {
-                                    const nameData = r[`name_${currentLang}`] || r.name_ko || r.name;
-                                    const finalName = typeof nameData === 'object'
-                                        ? (nameData[currentLang] || nameData.ko || nameData.en || "Untitled")
-                                        : (nameData || "Untitled");
-                                    return (
-                                        <div
-                                            key={r.id}
-                                            onClick={() => setSelectedRecipe(r)}
-                                            className="p-5 bg-white border-2 border-transparent rounded-xl shadow-sm cursor-pointer hover:border-indigo-500 transition-all group"
-                                        >
-                                            <h3 className="font-bold text-gray-800 group-hover:text-indigo-600 truncate text-lg">
-                                                {finalName}
-                                            </h3>
-                                            <p className="text-gray-400 text-xs mt-2">
-                                                {currentLang === 'ko' ? '레시피 보기' : 'View Recipe'} →
-                                            </p>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <p className="col-span-2 text-center py-10 text-gray-400">
-                                    {currentLang === 'ko' ? '공유된 레시피를 불러오는 중...' : 'Loading recipes...'}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* 더 보기 버튼 */}
-                        {hasMore && (
-                            <div className="mt-12 flex justify-center">
-                                <button
-                                    onClick={() => fetchRecipes(false)}
-                                    disabled={isMoreLoading}
-                                    className={`px-8 py-3 rounded-full font-bold text-lg transition-all shadow-lg active:scale-95
-                ${isMoreLoading
-                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-50'}`}
-                                >
-                                    {isMoreLoading ? (
-                                        <span className="flex items-center gap-2">
-                                            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                            Laden...
-                                        </span>
-                                    ) : (
-                                        currentLang === 'ko' ? '레시피 더 보기' : 'Mehr Rezepte laden'
-                                    )}
-                                </button>
-                            </div>
-                        )}
-
-                        {!hasMore && recentRecipes.length > 0 && (
-                            <p className="text-center text-gray-400 mt-10 italic">
-                                {currentLang === 'ko' ? '모든 레시피를 불러왔습니다.' : 'Alle Rezepte wurden geladen.'}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-4 text-center">
-                        <div className="max-w-4xl mx-auto px-6 mb-12">
-                            <PriceComparison />
-                        </div>
-                    </div>
-                </main>
+      </div>
+    </main>
 
                 {isGuideOpen && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
@@ -871,26 +848,25 @@ try {
                             <GermanMartTips lang={currentLang} />
                         </div>
                     </div>
-                    
+
                 )}
 
-<Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
+                <Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
 
-{/* Modal이 떴을 때 배경을 살짝 어둡게 처리하는 로직이 RecipeModal 내부에 있는지 확인하세요 */}
-{selectedRecipe && (
-    <RecipeModal
-        recipe={selectedRecipe}
-        onClose={() => setSelectedRecipe(null)}
-        currentLang={currentLang}
-        t={t}
-        shareToKakao={shareToKakao}
-        shareToWhatsApp={shareToWhatsApp}
-    />
-)}
+                {selectedRecipe && (
+                    <RecipeModal
+                        recipe={selectedRecipe}
+                        onClose={() => setSelectedRecipe(null)}
+                        currentLang={currentLang}
+                        t={t}
+                        shareToKakao={shareToKakao}
+                        shareToWhatsApp={shareToWhatsApp}
+                    />
+                )}
             </div>
-            
+
         </div>
-        
+
     );
 
 };
