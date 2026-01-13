@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const Firecrawl = require("@mendable/firecrawl-js");
+console.log("SDK Package Keys:", Object.keys(Firecrawl));
 
 // 1. SDK 클래스 안전하게 가져오기
 const FirecrawlApp = Firecrawl.default || Firecrawl;
@@ -23,9 +24,16 @@ const db = admin.firestore();
 let app; 
 
 try {
+  app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
   console.log("SDK Type Check:", typeof FirecrawlApp);
   app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
-  
+  console.log("Available methods on app:", Object.getOwnPropertyNames(Object.getPrototypeOf(app)));
+
+  if (typeof app.scrapePage !== 'function') {
+    console.log("⚠️ 여전히 scrapePage가 없습니다. 구버전일 확률 100%");
+  }
+
+
   if (!app || typeof app.scrapePage !== 'function') {
     console.log("⚠️ scrapePage 없음, 대체 경로 시도...");
     const AltApp = require("@mendable/firecrawl-js").default || require("@mendable/firecrawl-js");
