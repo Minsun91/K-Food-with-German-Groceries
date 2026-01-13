@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
-const { default: FirecrawlApp } = require("@mendable/firecrawl-js");
-
+// const { default: FirecrawlApp } = require("@mendable/firecrawl-js");
+const FirecrawlApp = require("@mendable/firecrawl-js").default || require("@mendable/firecrawl-js");
 const saData = process.env.VITE_FIREBASE_SERVICE_ACCOUNT;
 const FIRECRAWL_API_KEY = process.env.VITE_FIRECRAWL_API_KEY;
 
