@@ -18,7 +18,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install firebase-admin @mendable/firecrawl-js
+          rm -rf node_modules package-lock.json # 👈 기존 쓰레기 완전 삭제
+          npm install firebase-admin @mendable/firecrawl-js@latest
           
       - name: Run script
         env:

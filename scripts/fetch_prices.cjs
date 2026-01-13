@@ -1,6 +1,9 @@
 const admin = require("firebase-admin");
-// const { default: FirecrawlApp } = require("@mendable/firecrawl-js");
-const FirecrawlApp = require("@mendable/firecrawl-js").default || require("@mendable/firecrawl-js");
+const Firecrawl = require("@mendable/firecrawl-js");
+
+// 1. SDK 클래스 안전하게 가져오기
+const FirecrawlApp = Firecrawl.default || Firecrawl;
+
 const saData = process.env.VITE_FIREBASE_SERVICE_ACCOUNT;
 const FIRECRAWL_API_KEY = process.env.VITE_FIRECRAWL_API_KEY;
 
@@ -17,7 +20,21 @@ try {
 }
 
 const db = admin.firestore();
-const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
+let app; 
+
+try {
+  console.log("SDK Type Check:", typeof FirecrawlApp);
+  app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
+  
+  if (!app || typeof app.scrapePage !== 'function') {
+    console.log("⚠️ scrapePage 없음, 대체 경로 시도...");
+    const AltApp = require("@mendable/firecrawl-js").default || require("@mendable/firecrawl-js");
+    app = new AltApp({ apiKey: FIRECRAWL_API_KEY });
+  }
+} catch (e) {
+  console.log("⚠️ 생성 실패, 폴백 실행");
+  app = new Firecrawl({ apiKey: FIRECRAWL_API_KEY });
+}
 
 const marts = [
   { name: "한독몰", url: "https://handokmall.de/search?q=" },
@@ -44,7 +61,7 @@ const targetItems = [
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 최신 SDK 모드 가동: scrapePage 시작");
+  console.log("🚀 크롤링 시작: scrapePage 모드");
 
   for (const itemObj of targetItems) {
     console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
@@ -53,7 +70,6 @@ async function updatePrices() {
       try {
         const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
         
-        // ✅ 최신 SDK 전용 함수와 옵션
         const scrapeResult = await app.scrapePage(searchUrl, {
           formats: ["json"], 
           jsonOptions: {
@@ -77,7 +93,6 @@ async function updatePrices() {
           }
         });
 
-        // ✅ 최신 SDK는 결과값이 .json 안에 들어있습니다.
         if (scrapeResult.success && scrapeResult.json?.products) {
           const cleanProducts = scrapeResult.json.products.filter(p => {
             const isBasicValid = p.item && p.item.trim() !== "" && p.price && p.price !== "0";
@@ -113,7 +128,6 @@ async function updatePrices() {
     }
   }
 
-  // 데이터 저장
   if (results.length > 0) {
     await db.collection("prices").doc("latest").set({ 
       data: results,
