@@ -42,7 +42,7 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             // 키워드 기반 자동 카테고리 분류 (라면끼리, 김치끼리)
             if (key.includes("Ramen") || key.includes("라면") || key.includes("Buldak")) key = "라면류 (Ramen)";
             else if (key.includes("Kimchi") || key.includes("김치")) key = "김치류 (Kimchi)";
-            else if (key.includes("Rice") || key.includes("쌀")) key = "곡류 (Rice)";
+            else if (key.includes("Maudu") || key.includes("만두")) key = "만두 (Mandu)";
             else if (key.includes("Gochujang") || key.includes("고추장") || key.includes("Paste")) key = "장류 (Sauce)";
             
             if (!acc[key]) acc[key] = [];
