@@ -29,12 +29,12 @@ try {
   app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
   console.log("Available methods on app:", Object.getOwnPropertyNames(Object.getPrototypeOf(app)));
 
-  if (typeof app.scrapePage !== 'function') {
+  if (typeof app.scrapeUrl !== 'function') {
     console.log("⚠️ 여전히 scrapePage가 없습니다. 구버전일 확률 100%");
   }
 
 
-  if (!app || typeof app.scrapePage !== 'function') {
+  if (!app || typeof app.scrapeUrl !== 'function') {
     console.log("⚠️ scrapePage 없음, 대체 경로 시도...");
     const AltApp = require("@mendable/firecrawl-js").default || require("@mendable/firecrawl-js");
     app = new AltApp({ apiKey: FIRECRAWL_API_KEY });
@@ -69,7 +69,7 @@ const targetItems = [
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 크롤링 시작: scrapePage 모드");
+  console.log("🚀 크롤링 시작: scrapeUrl 모드 가동"); 
 
   for (const itemObj of targetItems) {
     console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
@@ -78,7 +78,7 @@ async function updatePrices() {
       try {
         const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
         
-        const scrapeResult = await app.scrapePage(searchUrl, {
+        const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["json"], 
           jsonOptions: {
             schema: {
