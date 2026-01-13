@@ -45,7 +45,7 @@ const targetItems = [
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 비용 절감 모드 가동: scrapeUrl 기반 크롤링 시작");
+  console.log("🚀 비용 절감 모드 가동: scrapePage 기반 크롤링 시작");
 
   for (const itemObj of targetItems) {
     console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
@@ -54,8 +54,7 @@ async function updatePrices() {
       try {
         const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
         
-        // 💡 app.extract 대신 app.scrapeUrl 사용 (크레딧 대폭 절약)
-        const scrapeResult = await app.scrapeUrl(searchUrl, {
+        const scrapeResult = await app.scrapePage(searchUrl, {
           formats: ["json"], 
           jsonOptions: {
             schema: {
@@ -78,11 +77,9 @@ async function updatePrices() {
           }
         });
 
-        // ✅ scrapeResult 변수명 확인
         if (scrapeResult.success && scrapeResult.json?.products) {
           const cleanProducts = scrapeResult.json.products.filter(p => {
             const isBasicValid = p.item && p.item.trim() !== "" && p.price && p.price !== "0";
-            
             const lowerItem = p.item.toLowerCase();
             const lowerKo = itemObj.ko.toLowerCase();
             const lowerSearch = itemObj.search.toLowerCase().split(' ')[0];
@@ -93,33 +90,35 @@ async function updatePrices() {
             return isBasicValid && isRelevant && !isBlacklisted; 
           });
 
-          // 마트별 최저가 1개만 추출
           if (cleanProducts.length > 0) {
-            cleanProducts.sort((a, b) => parseFloat(String(a.price).replace(',', '.')) - parseFloat(String(b.price).replace(',', '.')));
-            const bestOne = cleanProducts[0];
+            cleanProducts.sort((a, b) => {
+                const getP = (val) => parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
+                return getP(a.price) - getP(b.price);
+            });
             
+            const bestOne = cleanProducts[0];
             results.push({
               ...bestOne,
               mart: mart.name,
               searchKeyword: itemObj.ko, 
               updatedAt: new Date().toISOString()
             });
-            console.log(`✅ ${mart.name}: ${bestOne.item} (${bestOne.price}€)`);
+            console.log(`✅ ${mart.name}: [${bestOne.item}] 추출 성공`);
           }
         }
       } catch (e) {
         console.error(`❌ ${mart.name} 에러:`, e.message);
-      }
-    }
-  }
+      } // ⚠️ 수정됨: try-catch 닫는 괄호 위치
+    } // ⚠️ 수정됨: mart 루프 닫기
+  } // ⚠️ 수정됨: itemObj 루프 닫기 (모든 검색이 끝난 후 저장해야 함)
 
-  // Firestore 저장 로직
+  // 🔥 모든 루프가 끝난 후 마지막에 한 번만 Firestore에 저장
   if (results.length > 0) {
     await db.collection("prices").doc("latest").set({ 
       data: results,
       lastGlobalUpdate: new Date().toISOString()
     });
-    console.log(`\n✨ 업데이트 완료! 남은 크레딧을 아꼈습니다.`);
+    console.log(`\n✨ 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
   }
 }
 
