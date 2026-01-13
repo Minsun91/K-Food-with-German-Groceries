@@ -30,22 +30,21 @@ const marts = [
 
 const targetItems = [
   { ko: "신라면", search: "Shin Ramyun 120g" },
-  { ko: "진라면", search: "Jin Ramyun" }, // 추가: 진라면
+  { ko: "진라면", search: "Jin Ramyun" },
   { ko: "불닭볶음면", search: "Samyang Buldak" },
-  { ko: "비비고 김치", search: "Bibigo Kimchi" }, // 추가: 비비고 김치
-  { ko: "종가집 김치", search: "Jongga Kimchi" }, // 추가: 종가집 김치
+  { ko: "비비고 김치", search: "Bibigo Kimchi" },
+  { ko: "종가집 김치", search: "Jongga Kimchi" },
   { ko: "비비고 만두", search: "Bibigo Mandu" },
   { ko: "고추장", search: "Gochujang 500g" },
   { ko: "쌈장", search: "Ssamjang 500g" },
   { ko: "간장", search: "Sojasauce" },
-  // { ko: "쌀", search: "Reis" },
   { ko: "두부", search: "Tofu" },
   { ko: "참기름", search: "Sesamöl" }
 ];
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 비용 절감 모드 가동: scrapePage 기반 크롤링 시작");
+  console.log("🚀 최신 SDK 모드 가동: scrapePage 시작");
 
   for (const itemObj of targetItems) {
     console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
@@ -54,6 +53,7 @@ async function updatePrices() {
       try {
         const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
         
+        // ✅ 최신 SDK 전용 함수와 옵션
         const scrapeResult = await app.scrapePage(searchUrl, {
           formats: ["json"], 
           jsonOptions: {
@@ -77,6 +77,7 @@ async function updatePrices() {
           }
         });
 
+        // ✅ 최신 SDK는 결과값이 .json 안에 들어있습니다.
         if (scrapeResult.success && scrapeResult.json?.products) {
           const cleanProducts = scrapeResult.json.products.filter(p => {
             const isBasicValid = p.item && p.item.trim() !== "" && p.price && p.price !== "0";
@@ -108,17 +109,17 @@ async function updatePrices() {
         }
       } catch (e) {
         console.error(`❌ ${mart.name} 에러:`, e.message);
-      } // ⚠️ 수정됨: try-catch 닫는 괄호 위치
-    } // ⚠️ 수정됨: mart 루프 닫기
-  } // ⚠️ 수정됨: itemObj 루프 닫기 (모든 검색이 끝난 후 저장해야 함)
+      }
+    }
+  }
 
-  // 🔥 모든 루프가 끝난 후 마지막에 한 번만 Firestore에 저장
+  // 데이터 저장
   if (results.length > 0) {
     await db.collection("prices").doc("latest").set({ 
       data: results,
       lastGlobalUpdate: new Date().toISOString()
     });
-    console.log(`\n✨ 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
+    console.log(`\n✨ 모든 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
   }
 }
 
