@@ -55,21 +55,18 @@ const marts = [
 
 const targetItems = [
   { ko: "신라면", search: "Shin Ramyun 120g" },
-  { ko: "진라면", search: "Jin Ramyun" },
   { ko: "불닭볶음면", search: "Samyang Buldak" },
-  { ko: "비비고 김치", search: "Bibigo Kimchi" },
+  // { ko: "비비고 김치", search: "Bibigo Kimchi" },
   { ko: "종가집 김치", search: "Jongga Kimchi" },
   { ko: "비비고 만두", search: "Bibigo Mandu" },
   { ko: "고추장", search: "Gochujang 500g" },
-  { ko: "쌈장", search: "Ssamjang 500g" },
-  { ko: "간장", search: "Sojasauce" },
+  // { ko: "간장", search: "Sojasauce" },
   { ko: "두부", search: "Tofu" },
-  { ko: "참기름", search: "Sesamöl" }
 ];
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 크롤링 시작: scrapeUrl 모드 가동"); 
+  console.log("🚀 크롤링 시작: scrapeUrl 모드 가동");
 
   for (const itemObj of targetItems) {
     console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
@@ -79,8 +76,8 @@ async function updatePrices() {
         const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
         
         const scrapeResult = await app.scrapeUrl(searchUrl, {
-          formats: ["json"], 
-          jsonOptions: {
+          formats: ["extract"], 
+          extract: {
             schema: {
               type: "object",
               properties: {
@@ -92,32 +89,30 @@ async function updatePrices() {
                       item: { type: "string" },
                       price: { type: "string" },
                       link: { type: "string" }
-                    },
-                    required: ["item", "price", "link"]
+                    }
                   }
                 }
               }
             }
-          }
+          },
+          waitFor: 1000,
+          onlyMainContent: true
         });
 
         if (scrapeResult.success && scrapeResult.json?.products) {
           const cleanProducts = scrapeResult.json.products.filter(p => {
             const isBasicValid = p.item && p.item.trim() !== "" && p.price && p.price !== "0";
             const lowerItem = p.item.toLowerCase();
-            const lowerKo = itemObj.ko.toLowerCase();
-            const lowerSearch = itemObj.search.toLowerCase().split(' ')[0];
-            
-            const isRelevant = lowerItem.includes(lowerKo) || lowerItem.includes(lowerSearch);
+            const isRelevant = lowerItem.includes(itemObj.ko.toLowerCase()) || 
+                               lowerItem.includes(itemObj.search.toLowerCase().split(' ')[0]);
             const isBlacklisted = ['젤리', '젤루조아', '육수', 'ice cream', 'eis'].some(word => lowerItem.includes(word));
-            
             return isBasicValid && isRelevant && !isBlacklisted; 
           });
 
           if (cleanProducts.length > 0) {
             cleanProducts.sort((a, b) => {
-                const getP = (val) => parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
-                return getP(a.price) - getP(b.price);
+              const getP = (val) => parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
+              return getP(a.price) - getP(b.price);
             });
             
             const bestOne = cleanProducts[0];
@@ -128,6 +123,12 @@ async function updatePrices() {
               updatedAt: new Date().toISOString()
             });
             console.log(`✅ ${mart.name}: [${bestOne.item}] 추출 성공`);
+
+            // ✅ 수정된 부분 1: 데이터를 results에 넣은 직후에 바로 저장!
+            await db.collection("prices").doc("latest").set({ 
+                data: results,
+                lastGlobalUpdate: new Date().toISOString()
+            });
           }
         }
       } catch (e) {
@@ -135,14 +136,10 @@ async function updatePrices() {
       }
     }
   }
-
-  if (results.length > 0) {
-    await db.collection("prices").doc("latest").set({ 
-      data: results,
-      lastGlobalUpdate: new Date().toISOString()
-    });
-    console.log(`\n✨ 모든 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
-  }
+  
+  // ✅ 수정된 부분 2: 모든 작업이 완전히 끝났을 때 최종 확정 로그
+  console.log(`\n✨ 모든 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
 }
+
 
 updatePrices();
