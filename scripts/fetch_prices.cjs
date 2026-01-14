@@ -157,10 +157,13 @@ const marts = [
   { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" }
 ];
 
-// 테스트를 위해 딱 1개 품목 '신라면'만 설정
 const targetItems = [
-  // { ko: "신라면", search: "Shin Ramyun" }
-  { ko: "불닭볶음면", search: "Samyang Buldak Original Spicy Chicken Noodle Single 140g" }
+  { ko: "신라면", search: "Nongshim Shin Ramyun 120g single" },
+  { ko: "불닭볶음면", search: "Samyang Buldak Original 140g single" },
+  { ko: "비비고 두부(부침용)", search: "Bibigo Tofu for firm/frying" },
+  { ko: "김포쌀 9.07kg", search: "Gimpo Rice 9.07kg (20lbs)" },
+  { ko: "참이슬 프레쉬", search: "Jjinro Chamisul Fresh Soju 360ml" },
+  { ko: "종가집 김치 500g", search: "Jongga Mat Kimchi 500g" }
 ];
 
 async function updatePrices() {
@@ -182,7 +185,9 @@ async function updatePrices() {
             prompt: `Find exactly ONE basic single pack of ${itemObj.search} (usually around 120g). 
                      Exclude bundles (5x, 4x), multi-packs, cups, bowls, or sauces. 
                      If there are multiple, pick the most standard single packet noodle.
-                     If it's out of stock, find the next available one.`,
+                     If it's out of stock, find the next available one.
+                     If the exact item is out of stock, please still extract the information but mark it. 
+                     If not found at all, return null for that store`,
             schema: {
               type: "object",
               properties: {
