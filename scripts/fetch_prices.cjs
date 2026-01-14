@@ -80,41 +80,51 @@ async function updatePrices() {
 
         if (scrapeResult.success && scrapeResult.markdown) {
           const content = scrapeResult.markdown;
-          
-          // ✅ 핵심: 가격 패턴이 보이면 앞뒤 문맥 30자 정도를 같이 추출
-          // 나중에 수동으로 "이게 신라면 가격 맞네"라고 판단하기 위함
-          const priceRegex = /([^\n]{0,30})(\d+[,.]\d{2})\s*(€|EUR)([^\n]{0,30})/gi;
-          let match;
+          const lines = content.split('\n');
 
-          while ((match = priceRegex.exec(content)) !== null) {
-            const rawText = (match[1] + match[2] + match[3] + match[4]).trim();
-            const price = match[2].replace(',', '.');
+          lines.forEach(line => {
+            // 1. 제외 필터: 단위가격, 취소선, 너무 짧은 줄 제외
+            if (line.includes('100 g') || line.includes('1 kg') || line.includes('~~') || line.trim().length < 5) return;
 
-            results.push({
-              item: rawText, // AI가 정제한 이름 대신 실제 페이지에 적힌 텍스트 전체를 저장
-              price: price,
-              mart: mart.name,
-              link: searchUrl,
-              searchKeyword: itemObj.ko,
-              updatedAt: new Date().toISOString()
-            });
-            
-            console.log(`📡 [${mart.name}] 데이터 발견: ${rawText}`);
-          }
+            const priceRegex = /(\d+[,.]\d{2})\s*(€|EUR)/i;
+            const match = line.match(priceRegex);
 
-          // 하나라도 찾았으면 바로 DB 업데이트
-          if (results.length > 0) {
-            await db.collection("prices").doc("latest").set({ 
-                data: results,
-                lastUpdate: new Date().toISOString(),
-                status: "manual-check-required" // 수동 확인 필요 표시
-            });
-          }
+            if (match) {
+              const priceNum = parseFloat(match[1].replace(',', '.'));
+              
+              // 2. 가격 범위 필터: 0.5유로 미만은 봉투나 사소한 것이니 제외
+              if (priceNum < 0.5) return;
+
+              const cleanItemName = line.trim().substring(0, 60).replace(/[#*]/g, ''); // 마크다운 기호 제거
+
+              results.push({
+                item: cleanItemName,
+                price: priceNum.toFixed(2),
+                mart: mart.name,
+                link: searchUrl,
+                searchKeyword: itemObj.ko,
+                updatedAt: new Date().toISOString()
+              });
+
+              console.log(`📡 [${mart.name}] 데이터 발견: ${cleanItemName} - €${priceNum}`);
+            }
+          });
         }
       } catch (e) {
         console.error(`❌ ${mart.name} 통신 에러:`, e.message);
       }
     }
   }
+
+  // ✅ 모든 반복문이 끝난 후 최종 저장 (중괄호 위치 확인!)
+  if (results.length > 0) {
+    await db.collection("prices").doc("latest").set({ 
+      data: results,
+      lastGlobalUpdate: new Date().toISOString(), // 필드명 통일
+      status: "manual-check-required"
+    });
+    console.log(`✨ 총 ${results.length}개의 데이터 저장 완료!`);
+  }
 }
+
 updatePrices();

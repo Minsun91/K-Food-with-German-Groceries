@@ -36,27 +36,38 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     }, [onUpdateData]);
 
     const groupedData = useMemo(() => {
-        const grouped = prices.reduce((acc, obj) => {
+        // 1. 여기서 먼저 가짜 데이터를 걸러냅니다 (displayData 역할)
+        const displayData = prices.filter(p => {
+            const itemName = p.item.toLowerCase();
+            const keyword = p.searchKeyword.toLowerCase();
+            
+            // 이름에 가격(€)이 포함되어 있거나 너무 짧은 이름은 제외
+            const isNotPriceName = !p.item.includes('€') && p.item.length > 3;
+            // 검색 키워드(신라면, 김치 등)가 포함되어 있는지 확인 (더 정확해짐)
+            const hasKeyword = itemName.includes(keyword) || itemName.includes(keyword.split(' ')[0]);
+            
+            return isNotPriceName && hasKeyword;
+        });
+    
+        // 2. 걸러진 displayData를 가지고 그룹화를 진행합니다.
+        const grouped = displayData.reduce((acc, obj) => {
             let key = obj.searchKeyword || "기타";
             
-            // 키워드 기반 자동 카테고리 분류 (라면끼리, 김치끼리)
             if (key.includes("Ramen") || key.includes("라면") || key.includes("Buldak")) key = "라면류 (Ramen)";
             else if (key.includes("Kimchi") || key.includes("김치")) key = "김치류 (Kimchi)";
-            else if (key.includes("Maudu") || key.includes("만두")) key = "만두 (Mandu)";
+            else if (key.includes("Mandu") || key.includes("만두")) key = "만두 (Mandu)";
             else if (key.includes("Gochujang") || key.includes("고추장") || key.includes("Paste")) key = "장류 (Sauce)";
             
             if (!acc[key]) acc[key] = [];
             acc[key].push(obj);
             return acc;
         }, {});
-
-        // 가격순 정렬
+    
+        // 3. 가격순 정렬
         Object.keys(grouped).forEach(key => {
-            grouped[key].sort((a, b) => {
-                const getNum = (str) => parseFloat(String(str).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
-                return getNum(a.price) - getNum(b.price);
-            });
+            grouped[key].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
         });
+    
         return grouped;
     }, [prices]);
 
