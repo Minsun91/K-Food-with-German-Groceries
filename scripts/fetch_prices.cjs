@@ -159,7 +159,8 @@ const marts = [
 
 // 테스트를 위해 딱 1개 품목 '신라면'만 설정
 const targetItems = [
-  { ko: "신라면", search: "Shin Ramyun" }
+  // { ko: "신라면", search: "Shin Ramyun" }
+  { ko: "불닭볶음면", search: "Samyang Buldak Original Spicy Chicken Noodle Single 140g" }
 ];
 
 async function updatePrices() {
@@ -180,7 +181,8 @@ async function updatePrices() {
           extract: {
             prompt: `Find exactly ONE basic single pack of ${itemObj.search} (usually around 120g). 
                      Exclude bundles (5x, 4x), multi-packs, cups, bowls, or sauces. 
-                     If there are multiple, pick the most standard single packet noodle.`,
+                     If there are multiple, pick the most standard single packet noodle.
+                     If it's out of stock, find the next available one.`,
             schema: {
               type: "object",
               properties: {
