@@ -45,118 +45,76 @@ try {
 }
 
 const marts = [
-  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  // { name: "다와요", url: "https://dawayo.de/ko/search?controller=search&s=" },
-  { name: "REWE", url: "https://www.rewe.de/suche/uebersicht?searchTerm=" },
-  { name: "Knuspr", url: "https://www.knuspr.de/suche?q=" },
-  { name: "EDEKA24", url: "https://www.edeka24.de/#search:query=" }
+  { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },  
+  // { name: "Knuspr", url: "https://www.knuspr.de/suche?q=" }
 ];
 
 const targetItems = [
-  { ko: "신라면", search: "Shin Ramyun 120g" },
-  { ko: "불닭볶음면", search: "Samyang Buldak" },
-  // { ko: "비비고 김치", search: "Bibigo Kimchi" },
+  { ko: "신라면", search: "Shin Ramyun" },
+  { ko: "불닭볶음면", search: "Buldak" },
+  // { ko: "간장", search: "Sojasauce" }
+  { ko: "김치", search: "Kimchi" },
   // { ko: "종가집 김치", search: "Jongga Kimchi" },
   // { ko: "비비고 만두", search: "Bibigo Mandu" },
   // { ko: "고추장", search: "Gochujang 500g" },
-  // { ko: "간장", search: "Sojasauce" },
   // { ko: "두부", search: "Tofu" },
 ];
 
 async function updatePrices() {
   let results = [];
-  console.log("🚀 크롤링 시작: scrapeUrl 모드 가동");
+  console.log("🚀 수집 우선 모드: 일단 다 가져옵니다!");
 
   for (const itemObj of targetItems) {
-    console.log(`\n🔎 [${itemObj.ko}] 검색 중...`);
-
     for (const mart of marts) {
       try {
-        const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
-
+        const query = (mart.name === "다와요" || mart.name === "한독몰") ? itemObj.ko : itemObj.search;
+        const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
+        
         const scrapeResult = await app.scrapeUrl(searchUrl, {
-          formats: ["extract"],
-          extract: {
-            schema: {
-              type: "object",
-              properties: {
-                products: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      item: { type: "string" },
-                      price: { type: "string" },
-                      link: { type: "string" }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          waitFor: 1000,
-          onlyMainContent: true
+          formats: ["markdown"],
+          onlyMainContent: true,
+          waitFor: 2000 
         });
 
-        if (scrapeResult.success && scrapeResult.json?.products) {
-          const cleanProducts = scrapeResult.json.products.filter(p => {
-            // 1. 기본 유효성 검사 (이름, 가격 존재 여부)
-            const isBasicValid = p.item && p.item.trim() !== "" && p.price && p.price !== "0";
-            if (!isBasicValid) return false;
+        if (scrapeResult.success && scrapeResult.markdown) {
+          const content = scrapeResult.markdown;
+          
+          // ✅ 핵심: 가격 패턴이 보이면 앞뒤 문맥 30자 정도를 같이 추출
+          // 나중에 수동으로 "이게 신라면 가격 맞네"라고 판단하기 위함
+          const priceRegex = /([^\n]{0,30})(\d+[,.]\d{2})\s*(€|EUR)([^\n]{0,30})/gi;
+          let match;
 
-            const lowerItem = p.item.toLowerCase();
-            const lowerKo = itemObj.ko.toLowerCase();
-            const firstSearchWord = itemObj.search.toLowerCase().split(' ')[0]; // 예: "shin", "samyang"
+          while ((match = priceRegex.exec(content)) !== null) {
+            const rawText = (match[1] + match[2] + match[3] + match[4]).trim();
+            const price = match[2].replace(',', '.');
 
-            // 2. 긍정 필터: 한글명 혹은 영문 핵심 키워드가 포함되어야 함
-            const hasKeyword = lowerItem.includes(lowerKo) || lowerItem.includes(firstSearchWord);
-
-            // 3. 부정 필터 (블랙리스트): 관련 없는 상품들 정교하게 차단
-            const blacklist = [
-              '젤리', '젤루조아', '육수', 'ice cream', 'eis', 'drink', '음료',
-              'juice', 'snack', '과자', 'soup base', 'bowl', 'cup'
-            ];
-
-            if (itemObj.ko === "비비고 만두" && lowerItem.includes("wrapper")) return false;
-            if (itemObj.ko === "고추장" && lowerItem.includes("sauce")) {
-            }
-
-            const isBlacklisted = blacklist.some(word => lowerItem.includes(word));
-
-            return hasKeyword && !isBlacklisted;
-          });
-
-          if (cleanProducts.length > 0) {
-            cleanProducts.sort((a, b) => {
-              const getP = (val) => parseFloat(String(val).replace(/[^\d.,]/g, '').replace(',', '.'));
-              return getP(a.price) - getP(b.price);
-            });
-
-            const bestOne = cleanProducts[0];
             results.push({
-              ...bestOne,
+              item: rawText, // AI가 정제한 이름 대신 실제 페이지에 적힌 텍스트 전체를 저장
+              price: price,
               mart: mart.name,
+              link: searchUrl,
               searchKeyword: itemObj.ko,
               updatedAt: new Date().toISOString()
             });
-            console.log(`✅ ${mart.name}: [${bestOne.item}] 추출 성공`);
+            
+            console.log(`📡 [${mart.name}] 데이터 발견: ${rawText}`);
+          }
 
-            // ✅ 수정된 부분 1: 데이터를 results에 넣은 직후에 바로 저장!
-            await db.collection("prices").doc("latest").set({
-              data: results,
-              lastGlobalUpdate: new Date().toISOString()
+          // 하나라도 찾았으면 바로 DB 업데이트
+          if (results.length > 0) {
+            await db.collection("prices").doc("latest").set({ 
+                data: results,
+                lastUpdate: new Date().toISOString(),
+                status: "manual-check-required" // 수동 확인 필요 표시
             });
           }
         }
       } catch (e) {
-        console.error(`❌ ${mart.name} 에러:`, e.message);
+        console.error(`❌ ${mart.name} 통신 에러:`, e.message);
       }
     }
   }
-
-  // ✅ 수정된 부분 2: 모든 작업이 완전히 끝났을 때 최종 확정 로그
-  console.log(`\n✨ 모든 업데이트 완료! 총 ${results.length}개의 데이터를 저장했습니다.`);
 }
-
 updatePrices();

@@ -27,9 +27,11 @@ const Footer = ({ currentLang, onOpenGuide }) => {
               Cook Korean, Anywhere 🌍 🍜
             </h2>
             <div className="flex gap-4 justify-center text-xs text-gray-400 font-medium pt-4">
-              <a href="/privacy" className="hover:text-gray-600">Privacy Policy</a>
+              <a href="/privacy.html" className="hover:text-gray-600">Privacy Policy</a>
               <span className="text-gray-200">|</span>
-              <a href="/impressum" className="hover:text-gray-600">Impressum</a>
+              <a href="/impressum.html" className="hover:text-gray-600">
+  Impressum
+</a>
             </div>
           </div>
         </div>
