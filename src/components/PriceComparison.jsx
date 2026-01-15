@@ -70,12 +70,16 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
                         </svg>
                     </div>
                     <input
-                        type="text"
-                        placeholder="상품명이나 마트 이름을 검색해보세요"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 bg-slate-100/80 border-none rounded-2xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400"
-                    />
+    type="text"
+    placeholder={
+        currentLang === 'ko' ? "상품명이나 마트 이름을 검색해보세요" : 
+        currentLang === 'de' ? "Produkte oder Märkte suchen..." : 
+        "Search products or marts..."
+    }
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-11 pr-4 py-3.5 bg-slate-100/80 border-none rounded-2xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400"
+/>
                     {searchTerm && (
                         <button 
                             onClick={() => setSearchTerm("")}
