@@ -154,7 +154,9 @@ const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 const marts = [
   { name: "한독몰", url: "https://handokmall.de/search?q=" },
   { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" }
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
+  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "yourtag-21" } // ✅ 본인 태그 입력
 ];
 
 const targetItems = [
@@ -167,8 +169,19 @@ const targetItems = [
 ];
 
 async function updatePrices() {
-  let allResults = [];
-  console.log("🤖 AI Extract 모드 가동: 정확한 단품 1개만 정제하여 가져옵니다.");
+  let newResults = [];
+  
+  // 1. ✅ 기존 데이터 가져오기
+  let existingData = [];
+  try {
+    const doc = await db.collection("prices").doc("latest").get();
+    if (doc.exists) {
+      existingData = doc.data().data || [];
+      console.log(`📂 기존 데이터 ${existingData.length}개를 불러왔습니다.`);
+    }
+  } catch (e) {
+    console.log("기존 데이터가 없습니다. 새로 시작합니다.");
+  }
 
   for (const itemObj of targetItems) {
     for (const mart of marts) {
@@ -176,23 +189,17 @@ async function updatePrices() {
         const query = (mart.name === "다와요" || mart.name === "한독몰") ? itemObj.ko : itemObj.search;
         const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
         
-        console.log(`📡 [${mart.name}] AI가 분석 중... (${itemObj.ko})`);
+        console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko}`);
 
-        // ✅ AI 추출 핵심 설정
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            prompt: `Find exactly ONE basic single pack of ${itemObj.search} (usually around 120g). 
-                     Exclude bundles (5x, 4x), multi-packs, cups, bowls, or sauces. 
-                     If there are multiple, pick the most standard single packet noodle.
-                     If it's out of stock, find the next available one.
-                     If the exact item is out of stock, please still extract the information but mark it. 
-                     If not found at all, return null for that store`,
+            prompt: `Find ONE single unit of ${itemObj.search}. Exclude bundles, cups, and multi-packs. If out of stock, still provide price but name it clearly.`,
             schema: {
               type: "object",
               properties: {
-                product_name: { type: "string", description: "The full name of the product" },
-                price: { type: "number", description: "The price in Euro as a decimal number (e.g. 1.50)" }
+                product_name: { type: "string" },
+                price: { type: "number" }
               },
               required: ["product_name", "price"]
             }
@@ -201,8 +208,7 @@ async function updatePrices() {
 
         if (scrapeResult.success && scrapeResult.extract) {
           const data = scrapeResult.extract;
-          
-          allResults.push({
+          newResults.push({
             item: data.product_name,
             price: data.price.toFixed(2),
             mart: mart.name,
@@ -210,8 +216,7 @@ async function updatePrices() {
             searchKeyword: itemObj.ko,
             updatedAt: new Date().toISOString()
           });
-
-          console.log(`✅ [${mart.name}] AI 확정: ${data.product_name} -> €${data.price}`);
+          console.log(`✅ [${mart.name}] 발견: ${data.product_name} -> €${data.price}`);
         }
       } catch (e) {
         console.error(`❌ ${mart.name} 에러:`, e.message);
@@ -219,14 +224,23 @@ async function updatePrices() {
     }
   }
 
-  // Firebase 저장
-  if (allResults.length > 0) {
+  // 2. ✅ 중복 제거 및 데이터 합치기
+  // 기존 데이터에서 이번에 새로 수집한 품목(searchKeyword)과 마트가 겹치는 건 지우고 새 걸로 교체
+  const updatedData = [
+    ...existingData.filter(old => 
+      !newResults.some(newItem => newItem.searchKeyword === old.searchKeyword && newItem.mart === old.mart)
+    ),
+    ...newResults
+  ];
+
+  // 3. ✅ 최종 저장
+  if (updatedData.length > 0) {
     await db.collection("prices").doc("latest").set({ 
-      data: allResults,
+      data: updatedData,
       lastGlobalUpdate: new Date().toISOString(),
-      status: "AI-Verified"
+      status: "AI-Verified-Cumulative"
     });
-    console.log(`✨ 총 ${allResults.length}개의 정제된 데이터 저장 완료!`);
+    console.log(`✨ 누적 데이터 총 ${updatedData.length}개 저장 완료! (신라면 보존됨)`);
   }
 }
 

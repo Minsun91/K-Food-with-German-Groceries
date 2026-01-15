@@ -5,20 +5,16 @@ import { doc, onSnapshot } from 'firebase/firestore';
 const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     const [prices, setPrices] = useState([]);
     const [loading, setLoading] = useState(true);
+    // ✅ 검색어 상태 추가
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, "prices", "latest"), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 const rawData = data.data || [];
-
-                // 기본 정제: 이름과 가격이 있는 것만 통과
-                const cleanData = rawData.filter(p => 
-                    p.item && p.price && p.price !== "0"
-                );
-
+                const cleanData = rawData.filter(p => p.item && p.price && p.price !== "0");
                 setPrices(cleanData);
-
                 if (data.lastGlobalUpdate) {
                     const timeString = new Date(data.lastGlobalUpdate).toLocaleString();
                     if (onUpdateData) onUpdateData(timeString);
@@ -29,12 +25,20 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         return () => unsubscribe();
     }, [onUpdateData]);
 
-    const groupedData = useMemo(() => {
-        // 1. 그룹화 진행 (AI가 이미 정제했으므로 추가 필터링 최소화)
-        const grouped = prices.reduce((acc, obj) => {
+    // ✅ 검색어 필터링이 포함된 그룹화 로직
+    const filteredAndGroupedData = useMemo(() => {
+        const term = searchTerm.toLowerCase().trim();
+        
+        // 1. 검색어에 맞는 아이템 필터링
+        const filtered = prices.filter(p => 
+            p.item.toLowerCase().includes(term) || 
+            p.mart.toLowerCase().includes(term) ||
+            (p.searchKeyword && p.searchKeyword.toLowerCase().includes(term))
+        );
+
+        // 2. 필터링된 결과로 그룹화 진행
+        const grouped = filtered.reduce((acc, obj) => {
             let key = obj.searchKeyword || "기타";
-            
-            // 키워드 기반 카테고리 분류
             if (key.includes("Ramen") || key.includes("라면") || key.includes("Buldak")) key = "라면류 (Ramen)";
             else if (key.includes("Kimchi") || key.includes("김치")) key = "김치류 (Kimchi)";
             else if (key.includes("Mandu") || key.includes("만두")) key = "만두 (Mandu)";
@@ -45,33 +49,60 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             return acc;
         }, {});
 
-        // 2. 가격순 정렬 (가장 저렴한 마트가 위로)
+        // 3. 가격순 정렬
         Object.keys(grouped).forEach(key => {
             grouped[key].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
         });
 
         return grouped;
-    }, [prices]);
+    }, [prices, searchTerm]);
 
-    if (loading) return <div className="py-20 text-center text-slate-400">데이터를 불러오는 중...</div>;
+    if (loading) return <div className="py-20 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>;
 
     return (
         <div className="w-full bg-white">
+            {/* 🔍 검색바 섹션 */}
+            <div className="px-4 md:px-6 pt-4 pb-2">
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="상품명이나 마트 이름을 검색해보세요"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 bg-slate-100/80 border-none rounded-2xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400"
+                    />
+                    {searchTerm && (
+                        <button 
+                            onClick={() => setSearchTerm("")}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
+                        >
+                            <span className="text-xs bg-slate-200 px-1.5 py-0.5 rounded-md">ESC</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* 리스트 섹션 */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-                {Object.keys(groupedData).length > 0 ? (
-                    Object.keys(groupedData)
+                {Object.keys(filteredAndGroupedData).length > 0 ? (
+                    Object.keys(filteredAndGroupedData)
                         .sort((a, b) => a === '기타' ? 1 : b === '기타' ? -1 : a.localeCompare(b))
                         .map((category) => (
                             <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
                                 <div className="bg-slate-100/50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
                                     <h3 className="text-sm font-black text-slate-600 tracking-tight"># {category}</h3>
                                     <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-                                        {groupedData[category].length}개 마트 비교 중
+                                        {filteredAndGroupedData[category].length}개 결과
                                     </span>
                                 </div>
 
                                 <div className="divide-y divide-slate-100/50">
-                                    {groupedData[category].map((p, idx) => (
+                                    {filteredAndGroupedData[category].map((p, idx) => (
                                         <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer"
                                            className={`flex items-center justify-between p-4 hover:bg-white transition-all group ${idx === 0 ? 'bg-amber-50/40' : 'bg-white/50'}`}>
                                             
@@ -105,8 +136,17 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
                             </div>
                         ))
                 ) : (
-                    <div className="py-20 text-center text-slate-300 font-bold italic">
-                        정제된 데이터를 수집 중입니다. 잠시만 기다려주세요.
+                    <div className="py-20 text-center flex flex-col items-center gap-3">
+                        <span className="text-4xl">🔎</span>
+                        <div className="text-slate-400 font-bold">
+                            {searchTerm ? `"${searchTerm}"에 대한 검색 결과가 없습니다.` : "수집된 데이터가 없습니다."}
+                        </div>
+                        <button 
+                            onClick={() => setSearchTerm("")}
+                            className="text-indigo-500 text-sm font-bold underline"
+                        >
+                            전체 보기
+                        </button>
                     </div>
                 )}
             </div>
