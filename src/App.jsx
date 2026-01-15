@@ -681,189 +681,216 @@ const App = () => {
             {/* <script src="https://cdn.tailwindcss.com"></script> */}
 
             <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans pb-20">
-    {/* 1. 최상단 헤더: 로고와 언어 선택만 깔끔하게 */}
-    <header className="bg-white border-b border-slate-100">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
-        <h1 className="text-xl font-black text-indigo-900">
-          K-Food <span className="text-indigo-500 font-light">Tracker</span>
-        </h1>
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          {['ko', 'en', 'de'].map(lang => (
-            <button 
-              key={lang} 
-              onClick={() => setCurrentLang(lang)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                currentLang === lang ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
-              }`}
-            >
-              {lang.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-    </header>
-    <main className="max-w-6xl mx-auto px-4 py-6">
-      {/* 2. 커피 후원 배너: 로고 바로 아래 한 줄로 (기존 디자인 복구) */}
-      <div className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between border border-amber-100/50 shadow-sm gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">☕</span>
-          <div className="text-left">
-            <p className="text-sm font-black text-amber-900 leading-tight">{t?.coffee_title}</p>
-            <p className="text-[11px] text-amber-700 mt-0.5 font-medium">{t?.coffee_desc}</p>
-          </div>
-        </div>
-        <a 
-          href="https://ko-fi.com/kfoodtracker" 
-          target="_blank" 
-          className="w-full sm:w-auto bg-amber-800 text-white px-6 py-2.5 rounded-xl text-xs font-black hover:bg-amber-900 transition-all text-center shadow-md shrink-0"
-        >
-          {t?.coffee_button}
-        </a>
-      </div>
+                {/* 1. 최상단 헤더: 로고와 언어 선택만 깔끔하게 */}
+                <header className="bg-white border-b border-slate-100">
+                    <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+                        <h1 className="text-xl font-black text-indigo-900">
+                            K-Food <span className="text-indigo-500 font-light">Tracker</span>
+                        </h1>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                            {['ko', 'en', 'de'].map(lang => (
+                                <button
+                                    key={lang}
+                                    onClick={() => setCurrentLang(lang)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === lang ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'
+                                        }`}
+                                >
+                                    {lang.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </header>
 
-      {/* 3. 메인 콘텐츠: 좌우 너비 동일 (w-full / grid-cols-2) */}
-      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"> */}
+                <main className="max-w-6xl mx-auto px-4 py-6">
+                    {/* 2. 커피 후원 배너: 로고 바로 아래 한 줄로 (기존 디자인 복구) */}
+                    <div className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between border border-amber-100/50 shadow-sm gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">☕</span>
+                            <div className="text-left">
+                                <p className="text-sm font-black text-amber-900 leading-tight">{t?.coffee_title}</p>
+                                <p className="text-[11px] text-amber-700 mt-0.5 font-medium">{t?.coffee_desc}</p>
+                            </div>
+                        </div>
+                        <a
+                            href="https://ko-fi.com/kfoodtracker"
+                            target="_blank"
+                            className="w-full sm:w-auto bg-amber-800 text-white px-6 py-2.5 rounded-xl text-xs font-black hover:bg-amber-900 transition-all text-center shadow-md shrink-0"
+                        >
+                            {t?.coffee_button}
+                        </a>
+                    </div>
+
+                    {/* 3. 메인 콘텐츠: 좌우 너비 동일 (w-full / grid-cols-2) */}
+                    {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"> */}
+
+                    <div className="flex flex-col-reverse lg:grid lg:grid-cols-2 gap-8 items-start">
+
+                        {/* [영역 A] 레시피 생성 및 최근 레시피 (모바일에서는 아래로) */}
+                        <div className="w-full space-y-6">
+                            <section className="bg-white rounded-[2rem] border border-slate-100 p-6 md:p-8 shadow-sm">
+                                <div className="mb-6">
+                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                                        🍳 {t?.title}
+                                    </h2>
+                                    <p className="text-sm text-slate-400 font-medium mt-1">{t?.subtitle}</p>
+                                </div>
+
+                                {/* 메뉴 버튼 그룹: 클릭 시 언어별 메뉴명이 입력창에 자동으로 들어감 */}
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    {BEST_MENU_K10.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => {
+                                                const menuName = currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en);
+                                                setUserPrompt(menuName);
+                                            }}
+                                            className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-600 hover:border-indigo-300 transition-all active:scale-95"
+                                        >
+                                            {item.icon} {currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en)}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* 입력창: min-h를 줘서 모바일에서도 충분한 크기 확보 */}
+                                <textarea
+                                    className="w-full p-5 bg-slate-50 border-none rounded-2xl resize-none focus:ring-2 focus:ring-indigo-500 min-h-[140px] text-sm"
+                                    placeholder={t?.placeholder}
+                                    value={userPrompt}
+                                    onChange={(e) => setUserPrompt(e.target.value)}
+                                />
+
+                                {/* 생성 버튼 */}
+                                <button
+                                    onClick={handleGenerateRecipe}
+                                    disabled={isLoading}
+                                    className="w-full mt-4 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50"
+                                >
+                                    {isLoading ? t?.button_loading : t?.button_ready}
+                                </button>
+
+                                {/* 생성 제한 메시지 */}
+                                <div className="mt-4">
+                                    {getRateLimitMessage && getRateLimitMessage()}
+                                </div>
+                            </section>
+
+                            {/* 최근 레시피 목록 */}
+                            <section className="mt-12 w-full">
+                                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                                    ✨ {t?.recent_title}
+                                </h2>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {recentRecipes.map((r) => {
+                                        const recipeTitle = r[`name_${currentLang}`] || r.name_ko || r.name_en || r.name_de || r.name || "Untitled Recipe";
+                                        return (
+                                            <div
+                                                key={r.id}
+                                                onClick={() => setSelectedRecipe(r)}
+                                                // 🎨 디자인 복구: 배경, 테두리, 그림자, 호버 효과 추가
+                                                className="group p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[110px] active:scale-[0.98]"
+                                            >
+                                                <h3 className="font-bold text-slate-700 group-hover:text-indigo-600 truncate text-base">
+                                                    {recipeTitle}
+                                                </h3>
+
+                                                <div className="flex justify-between items-center mt-4">
+                                                    <span className="text-[11px] text-slate-400 font-black uppercase tracking-widest">
+                                                        {currentLang === 'ko' ? '레시피 보기' : (currentLang === 'de' ? 'Rezept ansehen' : 'View Recipe')}
+                                                    </span>
+                                                    {/* 🎨 호버 시 오른쪽으로 살짝 움직이는 화살표 */}
+                                                    <span className="text-indigo-500 font-bold transform group-hover:translate-x-1 transition-transform">
+                                                        →
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                
+                                {/* 레시피 하단 컨트롤 영역 - 완전 중앙 정렬 및 투명 배경 적용 */}
+<div className="mt-16 mb-24 w-full px-4">
+    {/* justify-center를 사용하여 두 버튼을 화면 정중앙에 모읍니다 */}
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
         
-      <div className="flex flex-col-reverse lg:grid lg:grid-cols-2 gap-8 items-start">
-    
-    {/* [영역 A] 레시피 생성 및 최근 레시피 (모바일에서는 아래로) */}
-    <div className="w-full space-y-6">
-    <section className="bg-white rounded-[2rem] border border-slate-100 p-6 md:p-8 shadow-sm">
-  <div className="mb-6">
-    <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-      🍳 {t?.title}
-    </h2>
-    <p className="text-sm text-slate-400 font-medium mt-1">{t?.subtitle}</p>
-  </div>
-  
-  {/* 메뉴 버튼 그룹: 클릭 시 언어별 메뉴명이 입력창에 자동으로 들어감 */}
-  <div className="flex flex-wrap gap-2 mb-6">
-    {BEST_MENU_K10.map((item) => (
-      <button 
-        key={item.id} 
-        onClick={() => {
-          const menuName = currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en);
-          setUserPrompt(menuName);
-        }} 
-        className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-600 hover:border-indigo-300 transition-all active:scale-95"
-      >
-        {item.icon} {currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en)}
-      </button>
-    ))}
-  </div>
+        {/* 1. 레시피 더 보기 버튼 */}
+        {hasMore && (
+            <div className="w-full sm:w-auto">
+                <button
+                    onClick={() => fetchRecipes(false)}
+                    disabled={isMoreLoading}
+                    className="w-full sm:w-[220px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                    {isMoreLoading ? "Loading..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")}
+                </button>
+            </div>
+        )}
 
-  {/* 입력창: min-h를 줘서 모바일에서도 충분한 크기 확보 */}
-  <textarea 
-    className="w-full p-5 bg-slate-50 border-none rounded-2xl resize-none focus:ring-2 focus:ring-indigo-500 min-h-[140px] text-sm" 
-    placeholder={t?.placeholder}
-    value={userPrompt} 
-    onChange={(e) => setUserPrompt(e.target.value)} 
-  />
-  
-  {/* 생성 버튼 */}
-  <button 
-    onClick={handleGenerateRecipe} 
-    disabled={isLoading}
-    className="w-full mt-4 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50"
-  > 
-    {isLoading ? t?.button_loading : t?.button_ready} 
-  </button>
-  
-  {/* 생성 제한 메시지 */}
-  <div className="mt-4">
-    {getRateLimitMessage && getRateLimitMessage()}
-  </div>
-</section>
+
         
-      {/* 최근 레시피 목록 */}
-      <section className="mt-12 w-full">
-  <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"> 
-    ✨ {t?.recent_title} 
-  </h2>
-  
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {recentRecipes.map((r) => {
-      const recipeTitle = r[`name_${currentLang}`] || r.name_ko || r.name_en || r.name_de || r.name || "Untitled Recipe";
-      return (
-        <div 
-          key={r.id} 
-          onClick={() => setSelectedRecipe(r)} 
-          // 🎨 디자인 복구: 배경, 테두리, 그림자, 호버 효과 추가
-          className="group p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[110px] active:scale-[0.98]"
-        >
-          <h3 className="font-bold text-slate-700 group-hover:text-indigo-600 truncate text-base">
-            {recipeTitle}
-          </h3>
-          
-          <div className="flex justify-between items-center mt-4">
-             <span className="text-[11px] text-slate-400 font-black uppercase tracking-widest"> 
-               {currentLang === 'ko' ? '레시피 보기' : (currentLang === 'de' ? 'Rezept ansehen' : 'View Recipe')} 
-             </span>
-             {/* 🎨 호버 시 오른쪽으로 살짝 움직이는 화살표 */}
-             <span className="text-indigo-500 font-bold transform group-hover:translate-x-1 transition-transform"> 
-               → 
-             </span>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-
-  {/* [복구] 더보기 버튼 디자인 */}
-  {hasMore && (
-    <div className="mt-10 flex justify-center">
-      <button 
-        onClick={() => fetchRecipes(false)} 
-        disabled={isMoreLoading}
-        className="px-10 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-50 transition-all shadow-lg active:scale-95 disabled:opacity-50"
-      > 
-        {isMoreLoading ? "Loading..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")} 
-      </button>
     </div>
-  )}
-</section>
-    </div>
-
-<div className="w-full">
-  <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-    {/* 🎨 개선된 최저가 타이틀 영역 */}
-    <div className="p-6 md:p-8 border-b border-slate-50 flex flex-row items-start justify-between gap-4">
-      <div className="flex-1">
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">🛒 {t?.price_title}</h2>
-        <p className="text-sm text-slate-400 font-medium mt-1">{t?.price_subtitle}</p>
-      </div>
-
-      {/* 📱 모바일에서 제목 안 깨지게 '최근 업데이트'와 '시간'을 두 줄로 분리 */}
-      {lastUpdate ? (
-        <div className="shrink-0 flex flex-col items-end text-right">
-          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-md mb-1">
-            {t?.last_update || "Last Update"}
-          </span>
-          <span className="text-[10px] text-indigo-600 font-black leading-tight">
-            {lastUpdate.split(', ').map((line, i) => (
-              <span key={i} className="block">{line}</span>
-            ))}
-          </span>
-        </div>
-      ) : (
-        /* 데이터 로딩 전이나 없을 때 자리 표시 */
-        <div className="shrink-0 h-10 w-20 bg-slate-50 animate-pulse rounded-xl" />
-      )}
-    </div>
-    
-    <div className="bg-white">
-      {/* setLastUpdate를 넘겨서 자식 컴포넌트가 데이터를 가져오면 부모의 상태를 업데이트하게 함 */}
-      <PriceComparison 
-        currentLang={currentLang} 
-        langConfig={langConfig} 
-        onUpdateData={(time) => setLastUpdate(time)} 
-      />
-    </div>
-  </section>
 </div>
-    </div>
+                            </section>
+                                   
+                        </div>
 
-</main>
+                        <div className="w-full">
+                            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                                {/* 🎨 개선된 최저가 타이틀 영역 */}
+                                <div className="p-6 md:p-8 border-b border-slate-50 flex flex-row items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">🛒 {t?.price_title}</h2>
+                                        <p className="text-sm text-slate-400 font-medium mt-1">{t?.price_subtitle}</p>
+                                    </div>
+
+                                    {/* 📱 모바일에서 제목 안 깨지게 '최근 업데이트'와 '시간'을 두 줄로 분리 */}
+                                    {lastUpdate ? (
+                                        <div className="shrink-0 flex flex-col items-end text-right">
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-md mb-1">
+                                                {t?.last_update || "Last Update"}
+                                            </span>
+                                            <span className="text-[10px] text-indigo-600 font-black leading-tight">
+                                                {lastUpdate.split(', ').map((line, i) => (
+                                                    <span key={i} className="block">{line}</span>
+                                                ))}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        /* 데이터 로딩 전이나 없을 때 자리 표시 */
+                                        <div className="shrink-0 h-10 w-20 bg-slate-50 animate-pulse rounded-xl" />
+                                    )}
+                                </div>
+
+                                <div className="bg-white">
+                                    {/* setLastUpdate를 넘겨서 자식 컴포넌트가 데이터를 가져오면 부모의 상태를 업데이트하게 함 */}
+                                    <PriceComparison
+                                        currentLang={currentLang}
+                                        langConfig={langConfig}
+                                        onUpdateData={(time) => setLastUpdate(time)}
+                                    />
+                                </div>
+                                
+                            </section>
+                             {/* 2. 제보 버튼 (배경 투명 & 이메일 연결) */}
+                             <div className="w-full mt-12 mb-20 flex flex-col items-center">
+    <div className="w-full max-w-6xl px-4 flex flex-col items-center gap-3">
+        {/* 설명 텍스트 (선택 사항) */}
+        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
+            {/* {currentLang === 'ko' ? "정보 수정 및 상품 제보" : "Report Data"} */}
+        </p>
+        
+        <a 
+            href="mailto:matagom10@gmail.com"
+            className="w-full sm:w-[280px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+        >
+            <span>{currentLang === 'ko' ? "상품 및 오류 제보 ✍️" : "REPORT DATA OR ERROR ✍️"}</span>
+        </a>
+    </div>
+</div>
+                        </div>
+                    </div>
+                </main>
 
                 {isGuideOpen && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
@@ -874,11 +901,10 @@ const App = () => {
                             <GermanMartTips lang={currentLang} />
                         </div>
                     </div>
-
+                    
                 )}
 
                 <Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
-
                 {selectedRecipe && (
                     <RecipeModal
                         recipe={selectedRecipe}
@@ -890,11 +916,8 @@ const App = () => {
                     />
                 )}
             </div>
-
         </div>
-
     );
-
 };
 
 export default App;

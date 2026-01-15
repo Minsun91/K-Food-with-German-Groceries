@@ -97,19 +97,17 @@ async function updatePrices() {
   }
 
   // 2. ✅ 중복 제거 및 데이터 합치기
-  // 기존 데이터에서 이번에 새로 수집한 품목(searchKeyword)과 마트가 겹치는 건 지우고 새 걸로 교체
   const updatedData = [
-    ...existingData.filter(old => 
-      !newResults.some(newItem => newItem.searchKeyword === old.searchKeyword && newItem.mart === old.mart)
-    ),
-    ...newResults.map(item => {
-      if (item.mart === "아마존") {
-        const amazonTag = marts.find(m => m.name === "아마존").affiliateId;
-        const separator = item.link.includes('?') ? '&' : '?';
-        item.link = `${item.link}${separator}tag=${amazonTag}`;
+    ...existingData.filter(old => {
+      const matched = newResults.find(newItem => newItem.searchKeyword === old.searchKeyword && newItem.mart === old.mart);
+      if (matched) {
+          // 새로 수집된 데이터에 '이전 가격' 정보를 심어줍니다.
+          matched.prevPrice = old.price; 
+          return false;
       }
-      return item;
-    })
+      return true;
+    }),
+    ...newResults
   ];
 
   // 3. ✅ 최종 저장
