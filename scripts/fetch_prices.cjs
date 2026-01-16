@@ -32,12 +32,19 @@ const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 
 const marts = [
   { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
   { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
   { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
 ];
 
 const targetItems = [
-  { ko: "쿠쿠 밥솥(3인용)", search: "Cuckoo Rice Cooker CR-0331 3-person" },
+  // { ko: "쿠쿠 밥솥", search: "Cuckoo CR-0331" },
+  // { ko: "불닭볶음면", search: "Samyang Buldak Ramen Original 140g single" },
+  // { ko: "참이슬 프레쉬", search: "Jinro Chamisul Fresh Soju 360ml" },
+  { ko: "짜파게티", search: "Nongshim Chapagetti 140g single" },
+  { ko: "샘표 진간장", search: "Sempio Jin Gold S Soy Sauce" },
+  { ko: "비비고 갈비 왕교자", search: "Bibigo Mandu Dumplings 525g" }
 ];
 
 async function updatePrices() {

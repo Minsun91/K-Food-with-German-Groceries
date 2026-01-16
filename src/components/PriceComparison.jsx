@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
+
 // 🚚 배송비 정보 데이터 (컴포넌트 외부 정의)
 const DELIVERY_INFO = [
     { name: "다와요", info: "60€↑ 무료" },
@@ -42,12 +43,25 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         );
 
         const grouped = filtered.reduce((acc, obj) => {
+            // searchKeyword가 없으면 "기타"로 분류
             let key = obj.searchKeyword || "기타";
-            // 카테고리 자동 분류 (원하시는 대로 추가 가능)
-            if (key.includes("Ramen") || key.includes("라면")) key = "라면류 (Ramen)";
-            else if (key.includes("Kimchi") || key.includes("김치")) key = "김치류 (Kimchi)";
-            else if (key.includes("Rice") || key.includes("쌀")) key = "곡물 (Rice)";
-            else if (key.includes("Cuckoo") || key.includes("쿠쿠")) key = "가전 (Electronics)";
+            
+            // 카테고리 자동 분류 로직
+            if (key.includes("라면") || key.includes("Ramen") || key.includes("짜파게티") || key.includes("불닭")) {
+                key = "라면류 (Ramen)";
+            } else if (key.includes("김치") || key.includes("Kimchi")) {
+                key = "김치류 (Kimchi)";
+            } else if (key.includes("쌀") || key.includes("Rice")) {
+                key = "곡물 (Rice)";
+            } else if (key.includes("쿠쿠") || key.includes("Cuckoo")) {
+                key = "가전 (Electronics)";
+            } else if (key.includes("소주") || key.includes("Soju") || key.includes("참이슬")) {
+                key = "주류 (Alcohol)";
+            } else if (key.includes("왕교자") || key.includes("Mandu") || key.includes("만두")) {
+                key = "냉동식품 (Frozen)";
+            } else if (key.includes("간장") || key.includes("Sauce") || key.includes("양념")) {
+                key = "양념/장류 (Sauce)";
+            }
             
             if (!acc[key]) acc[key] = [];
             acc[key].push(obj);
@@ -88,7 +102,7 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-            animation: marquee 20s linear infinite;
+            animation: marquee 12s linear infinite;
         }
         .animate-marquee:hover {
             animation-play-state: paused;
