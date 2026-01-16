@@ -43,26 +43,29 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         );
 
         const grouped = filtered.reduce((acc, obj) => {
-            // searchKeyword가 없으면 "기타"로 분류
             let key = obj.searchKeyword || "기타";
             
-            // 카테고리 자동 분류 로직
-            if (key.includes("라면") || key.includes("Ramen") || key.includes("짜파게티") || key.includes("불닭")) {
-                key = "라면류 (Ramen)";
-            } else if (key.includes("김치") || key.includes("Kimchi")) {
-                key = "김치류 (Kimchi)";
-            } else if (key.includes("쌀") || key.includes("Rice")) {
-                key = "곡물 (Rice)";
+            // 1. 상품별 개별 카테고리화 (우선순위 적용)
+            if (key.includes("신라면")) {
+                key = "🍜 신라면 (Shin Ramyun)";
+            } else if (key.includes("불닭")) {
+                key = "🔥 불닭볶음면 (Buldak)";
+            } else if (key.includes("짜파게티")) {
+                key = "🖤 짜파게티 (Chapagetti)";
+            } else if (key.includes("왕교자") || key.includes("만두")) {
+                key = "🥟 비비고 왕교자 (Mandu)";
+            } else if (key.includes("간장")) {
+                key = "🧴 샘표 진간장 (Soy Sauce)";
+            } else if (key.includes("참이슬") || key.includes("소주")) {
+                key = "🍶 참이슬 (Soju)";
             } else if (key.includes("쿠쿠") || key.includes("Cuckoo")) {
-                key = "가전 (Electronics)";
-            } else if (key.includes("소주") || key.includes("Soju") || key.includes("참이슬")) {
-                key = "주류 (Alcohol)";
-            } else if (key.includes("왕교자") || key.includes("Mandu") || key.includes("만두")) {
-                key = "냉동식품 (Frozen)";
-            } else if (key.includes("간장") || key.includes("Sauce") || key.includes("양념")) {
-                key = "양념/장류 (Sauce)";
+                key = "🍚 쿠쿠 밥솥 (Rice Cooker)";
+            } else if (key.includes("김치")) {
+                key = "🥬 종가집 김치 (Kimchi)";
+            } else if (key.includes("쌀")) {
+                key = "🌾 김포쌀 (Rice)";
             }
-            
+        
             if (!acc[key]) acc[key] = [];
             acc[key].push(obj);
             return acc;
@@ -106,6 +109,7 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         }
         .animate-marquee:hover {
             animation-play-state: paused;
+            
         }
     `}} />
 </div>
