@@ -532,7 +532,18 @@ const App = () => {
 
         } catch (error) {
             console.error("Generation API Error:", error);
-            setSystemMessageHandler(`에러 발생: ${error.message}`, 'error');
+        
+            // 🔴 503 에러(서버 과부하) 및 일시적 오류 처리 추가
+            if (error.message.includes("503") || error.message.includes("overloaded") || error.message.includes("UNAVAILABLE")) {
+                setSystemMessageHandler(
+                    "현재 구글 AI 서버에 접속자가 많아 잠시 지연되고 있습니다. 1~2분 후에 다시 시도해주시면 감사하겠습니다! 😊", 
+                    'error'
+                );
+            } else if (error.message.includes("permissions")) {
+                setSystemMessageHandler("데이터베이스 권한 설정이 필요합니다. 관리자에게 문의해주세요.", 'error');
+            } else {
+                setSystemMessageHandler(`에러 발생: ${error.message}`, 'error');
+            }
         } finally {
             setIsLoading(false);
         }
