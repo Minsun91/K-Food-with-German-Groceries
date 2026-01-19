@@ -242,6 +242,10 @@ const App = () => {
     const [hasMore, setHasMore] = useState(true);        // 더 가져올 데이터가 있는지 여부
     const [isMoreLoading, setIsMoreLoading] = useState(false); // 더보기 버튼 로딩 상태
     const [lastUpdate, setLastUpdate] = useState("");
+    const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+const [limitMessage, setLimitMessage] = useState("");
+const [limitTitle, setLimitTitle] = useState("");
+
     // ----------------------------------------------------------------------
     // 1. Firebase Initialization and Authentication 
     // ----------------------------------------------------------------------
@@ -433,6 +437,27 @@ const App = () => {
             setSystemMessageHandler("저장 중 오류가 발생했습니다.", "error");
         }
     };
+   
+    const limitMessages = {
+        ko: {
+            title: "한도 초과",
+            limit: "오늘의 레시피 생성 한도를 모두 사용했어요 🍽️\n내일 다시 오시면 더 맛있는 레시피로 도와드릴게요!",
+            overloaded: "지금 셰프가 너무 바빠요 🧑‍🍳🔥\n잠시 후 다시 시도해 주세요!",
+            button: "확인했습니다"
+        },
+        en: {
+            title: "Limit Reached",
+            limit: "Daily recipe limit reached 🍽️\nTry again tomorrow for more delicious recipes!",
+            overloaded: "Chef is super busy right now 🧑‍🍳🔥\nPlease try again in a few moments!",
+            button: "Got it"
+        },
+        de: {
+            title: "Limit erreicht",
+            limit: "Tägliches Rezeptlimit erreicht 🍽️\nVersuchen Sie es morgen erneut für weitere leckere Rezepte!",
+            overloaded: "Der Chefkoch ist gerade sehr beschäftigt 🧑‍🍳🔥\nBitte versuchen Sie es in Kürze noch einmal!",
+            button: "Verstanden"
+        }
+    };
 
     const handleGenerateRecipe = async () => {
         // 1. 기본 체크
@@ -464,29 +489,89 @@ const App = () => {
 
         try {
             const userQuery = `Create traditional Korean recipe using ingredients commonly and easily found in German supermarkets (like Rewe, Edeka, Aldi, Lidl). The recipe should be based on the following culinary idea: ${userPrompt}.`;
-            const systemPrompt = `You are a specialized culinary chef focused on 'German Supermarket Korean Food'. 
-            Return a JSON OBJECT (not array) with: name_ko, name_en, name_de, description_ko, description_en, description_de, ingredients (array), steps_ko (array), steps_en (array), steps_de (array).`;
+            // const systemPrompt = `You are a specialized culinary chef focused on 'German Supermarket Korean Food'. 
+            // Return a JSON OBJECT (not array) with: name_ko, name_en, name_de, description_ko, description_en, description_de, ingredients (array), steps_ko (array), steps_en (array), steps_de (array).`;
 
-            const result = await genAI.models.generateContent({
+            const systemPrompt = `
+You are a system that MUST output valid JSON only.
+
+Rules:
+- Output ONLY a valid JSON object
+- NO explanations
+- NO markdown
+- NO comments
+- NO trailing commas
+- All strings must be double-quoted
+- Arrays must be valid JSON arrays
+
+Schema:
+{
+  "name_ko": string,
+  "name_en": string,
+  "name_de": string,
+  "description_ko": string,
+  "description_en": string,
+  "description_de": string,
+  "ingredients": string[],
+  "steps_ko": string[],
+  "steps_en": string[],
+  "steps_de": string[]
+}
+`;
+
+const generateWithRetry = async (retries = 3) => {
+    let lastError;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            // API 호출
+            return await genAI.models.generateContent({
                 model: "gemini-2.5-flash-preview-09-2025",
                 contents: [
                     {
                         role: "user",
-                        parts: [
-                            {
-                                text: `${systemPrompt}\n\nUser Query: ${userQuery}`,
-                            },
-                        ],
+                        parts: [{ text: `${systemPrompt}\n\nUser Query: ${userQuery}` }],
                     },
                 ],
             });
+        }catch (error) {
+            setIsLoading(false); // 로딩 해제
+        
+            const lang = currentLang || 'ko';
+            const apiCode = error?.error?.code || error?.status;
+            const apiMessage = error?.error?.message || error?.message || "";
 
+            // 🔴 429 에러 (할당량 초과) 발생 시 "즉시" 팝업창 띄우기
+            if (apiCode === 429 || apiMessage.includes("429") || apiMessage.includes("QUOTA")) {
+                setLimitTitle(limitMessages[lang].title); // 제목 상태 추가 필요
+                setLimitMessage(limitMessages[lang].limit);
+                setIsLimitModalOpen(true);
+                return;
+            }
+        // 🔴 503 에러 (서버 과부하) 발생 시 안내 메시지
+            if (apiCode === 503 || apiMessage.includes("503") || apiMessage.includes("overloaded")) {
+                setLimitTitle(limitMessages[lang].title); 
+                setLimitMessage(limitMessages[lang].overloaded);
+                setIsLimitModalOpen(true);
+                return;
+            }
+
+            // 기타 에러
+            setSystemMessageHandler(`Error: ${apiMessage}`, 'error');
+        }
+    }
+    throw lastError;
+};
+            
+            const result = await generateWithRetry();
+            if (!result) return;
             let text = "";
-    
+            
             // 1순위: result.response.text() 시도
             if (result.response && typeof result.response.text === 'function') {
                 text = await result.response.text();
-            } 
+            }          
+          
             // 2순위: 보내주신 로그 구조처럼 candidates가 있는 경우 (안전장치)
             else if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
                 text = result.candidates[0].content.parts[0].text;
@@ -505,7 +590,12 @@ const App = () => {
             // 3. 파싱 로직
             let parsedRecipe = null;
             try {
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                const sanitizedText = text
+  .replace(/```json|```/g, "")
+  .replace(/^\s*[\r\n]/gm, "")
+  .trim();
+
+const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                 if (!jsonMatch) throw new Error("JSON pattern not found");
 
                 const cleanJson = jsonMatch[0].replace(/\u00A0/g, " ");
@@ -750,8 +840,6 @@ const App = () => {
                     </div>
 
                     {/* 3. 메인 콘텐츠: 좌우 너비 동일 (w-full / grid-cols-2) */}
-                    {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"> */}
-
                     <div className="flex flex-col-reverse lg:grid lg:grid-cols-2 gap-8 items-start">
 
                         {/* [영역 A] 레시피 생성 및 최근 레시피 (모바일에서는 아래로) */}
@@ -946,6 +1034,27 @@ const App = () => {
                         shareToWhatsApp={shareToWhatsApp}
                     />
                 )}
+                {/* 🔴 사용량 초과 모달 */}
+                {isLimitModalOpen && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl">
+            <div className="text-5xl mb-4">🍽️</div>
+            {/* 제목 다국어 적용 */}
+            <h3 className="text-xl font-black text-slate-800 mb-2">
+                {limitTitle || "Limit"} 
+            </h3>
+            <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line mb-6">
+                {limitMessage}
+            </p>
+            <button
+                onClick={() => setIsLimitModalOpen(false)}
+                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all"
+            >
+                {limitMessages[currentLang || 'ko'].button}
+            </button>
+        </div>
+    </div>
+)}
             </div>
         </div>
     );
