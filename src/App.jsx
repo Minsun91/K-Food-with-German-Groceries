@@ -481,37 +481,54 @@ const App = () => {
                 ],
             });
 
-            const text = result.text
+            let text = "";
+    
+            // 1순위: result.response.text() 시도
+            if (result.response && typeof result.response.text === 'function') {
+                text = await result.response.text();
+            } 
+            // 2순위: 보내주신 로그 구조처럼 candidates가 있는 경우 (안전장치)
+            else if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                text = result.candidates[0].content.parts[0].text;
+            }
+            // 3순위: result 자체가 response 역할을 하는 경우
+            else if (typeof result.text === 'function') {
+                text = await result.text();
+            }
+        
+            if (!text) {
+                // 이 메시지가 뜨면 구조가 정말 특이한 것입니다.
+                console.error("Text not found in result:", result);
+                throw new Error("AI 응답에서 텍스트를 찾을 수 없습니다.");
+            }
 
-            // 5. 파싱 
+            // 3. 파싱 로직
             let parsedRecipe = null;
             try {
                 const jsonMatch = text.match(/\{[\s\S]*\}/);
                 if (!jsonMatch) throw new Error("JSON pattern not found");
 
-                // 🔴 수정된 부분: \u00A0(특수 공백)를 일반 공백으로 치환
                 const cleanJson = jsonMatch[0].replace(/\u00A0/g, " ");
-
-                const rawData = JSON.parse(cleanJson); // 치환된 텍스트로 파싱
+                const rawData = JSON.parse(cleanJson);
                 const finalData = Array.isArray(rawData) ? rawData[0] : rawData;
 
-                // ... 나머지 로직 (동일)
                 parsedRecipe = {
-                    name: finalData[`name_${currentLang}`] || finalData.name || finalData.name_ko,
-                    description: finalData[`description_${currentLang}`] || finalData.description || finalData.description_ko,
-                    ingredients: finalData[`ingredients_${currentLang}`] || finalData.ingredients || finalData.ingredients_ko || [],
-                    instructions: finalData[`steps_${currentLang}`] || finalData.instructions || finalData.steps_ko || finalData.steps || []
+                    name: finalData[`name_${currentLang}`] || finalData.name_ko || finalData.name,
+                    description: finalData[`description_${currentLang}`] || finalData.description_ko || finalData.description,
+                    ingredients: finalData.ingredients || [],
+                    instructions: finalData[`steps_${currentLang}`] || finalData.steps_ko || []
                 };
 
                 if (!parsedRecipe.name) throw new Error("Invalid structure");
-                setGeneratedRecipe(parsedRecipe);
-
+                
             } catch (e) {
-                console.error("JSON 파싱 실패:", e); // 'text' 대신 에러 객체를 출력하면 원인 파악이 더 쉽습니다.
+                console.error("JSON 파싱 실패:", e);
                 throw new Error("레시피 형식이 올바르지 않습니다.");
             }
-            // 6. 상태 업데이트
-            setGeneratedRecipe(parsedRecipe);
+        
+            // 4. 상태 업데이트 (성공했을 때만 이 지점에 도달함)
+            setGeneratedRecipe(parsedRecipe); // 내부 보관용
+            setSelectedRecipe(parsedRecipe);  // 모달 띄우기용 ⭐ 핵심
             setIsRecipeSaved(false);
             setSystemMessageHandler(langConfig[currentLang].success_message, 'success');
 
@@ -919,7 +936,10 @@ const App = () => {
                 {selectedRecipe && (
                     <RecipeModal
                         recipe={selectedRecipe}
-                        onClose={() => setSelectedRecipe(null)}
+                       onClose={() => {
+            setSelectedRecipe(null);
+            setGeneratedRecipe(null); // 닫을 때 생성된 레시피도 초기화
+        }}
                         currentLang={currentLang}
                         t={t}
                         shareToKakao={shareToKakao}
