@@ -85,14 +85,30 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     if (loading) return <div className="py-20 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>;
 
     const handleKakaoShare = (item) => {
-        if (!window.Kakao) return;
-
+        // 1. Kakao SDK가 로드되었는지 확인
+        if (!window.Kakao) {
+            alert("카카오 SDK를 불러오는 중입니다. 잠시만 기다려주세요.");
+            return;
+        }
+    
+        if (!window.Kakao.isInitialized()) {
+            window.Kakao.init("c78231a56667f351595ae8b2d87b2152");
+        }
+    
+        // 3. Share 객체 존재 여부 확인 (에러 방지 핵심)
+        if (!window.Kakao.Share) {
+            alert("카카오 공유 기능을 사용할 수 없는 환경입니다.");
+            console.error("Kakao.Share is undefined. SDK 버전을 확인하세요.");
+            return;
+        }
+    
+        // 4. 실제 공유 실행
         window.Kakao.Share.sendDefault({
             objectType: 'feed',
             content: {
                 title: `${item.name} 최저가 정보 📍`,
                 description: getShareMessage(item),
-                imageUrl: item.imageUrl || '앱_기본_로고_URL',
+                imageUrl: 'https://k-food-with-german-groceries.web.app/og-image-v2.png', // 앱 기본 로고 사용
                 link: {
                     mobileWebUrl: window.location.href,
                     webUrl: window.location.href,
