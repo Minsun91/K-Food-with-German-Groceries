@@ -293,25 +293,6 @@ const [limitTitle, setLimitTitle] = useState("");
         }
     }, [db, isAuthReady, appId]);
 
-    // useEffect(() => {
-    //     if (!db || !isAuthReady) return;
-
-    //     const recipesRef = collection(db, `artifacts/${appId}/public_recipes`);
-    //     const q = query(recipesRef, orderBy("timestamp", "desc"), limit(6));
-
-    //     const unsubscribe = onSnapshot(q, (snapshot) => {
-    //         const list = [];
-    //         snapshot.forEach((doc) => {
-    //             // doc.data()와 doc.id를 합쳐서 넣어줘야 합니다!
-    //             list.push({ id: doc.id, ...doc.data() });
-    //         });
-    //         setRecentRecipes(list);
-    //     });
-
-    //     return () => unsubscribe();
-    // }, [db, isAuthReady]);
-
-    // System message handler
 
     // 1. 레시피를 가져오는 통합 함수
     const fetchRecipes = async (isFirst = true) => {
