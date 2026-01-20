@@ -34,6 +34,19 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         return () => unsubscribe();
     }, [onUpdateData]);
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const searchQuery = params.get('search');
+        if (searchQuery) {
+            setSearchTerm(decodeURIComponent(searchQuery));
+            
+            // 검색 위치로 자동 스크롤 (선택 사항)
+            setTimeout(() => {
+                window.scrollTo({ top: 500, behavior: 'smooth' });
+            }, 1000);
+        }
+    }, []);
+    
     const filteredAndGroupedData = useMemo(() => {
         const term = searchTerm.toLowerCase().trim();
         const filtered = prices.filter(p =>
@@ -85,41 +98,26 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     if (loading) return <div className="py-20 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>;
 
     const handleKakaoShare = (item) => {
-        // 1. Kakao SDK가 로드되었는지 확인
-        if (!window.Kakao) {
-            alert("카카오 SDK를 불러오는 중입니다. 잠시만 기다려주세요.");
-            return;
-        }
+        if (!window.Kakao) return;
+        if (!window.Kakao.isInitialized()) window.Kakao.init("c78231a56667f351595ae8b2d87b2152");
     
-        if (!window.Kakao.isInitialized()) {
-            window.Kakao.init("c78231a56667f351595ae8b2d87b2152");
-        }
-    
-        // 3. Share 객체 존재 여부 확인 (에러 방지 핵심)
-        if (!window.Kakao.Share) {
-            alert("카카오 공유 기능을 사용할 수 없는 환경입니다.");
-            console.error("Kakao.Share is undefined. SDK 버전을 확인하세요.");
-            return;
-        }
-    
-        // 4. 실제 공유 실행
-        window.Kakao.Share.sendDefault({
-            objectType: 'feed',
-            content: {
-                title: `${item.name} 최저가 정보 📍`,
-                description: getShareMessage(item),
-                imageUrl: 'https://k-food-with-german-groceries.web.app/og-image-v2.png', // 앱 기본 로고 사용
-                link: {
-                    mobileWebUrl: window.location.href,
-                    webUrl: window.location.href,
-                },
-            },
-            buttons: [{
-                title: '가격 확인하기',
-                link: { mobileWebUrl: window.location.href, webUrl: window.location.href }
-            }]
-        });
-    };
+        const searchParam = encodeURIComponent(item.name.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, "").trim());
+    const deepLink = `${window.location.origin}${window.location.pathname}?search=${searchParam}`;
+
+    window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+            title: `📍 ${item.name} 가격 비교`,
+            description: getShareMessage(item),
+            imageUrl: 'https://k-food-with-german-groceries.web.app/og-image-v2.png',
+            link: { mobileWebUrl: deepLink, webUrl: deepLink },
+        },
+        buttons: [{
+            title: '최저가 보러 가기',
+            link: { mobileWebUrl: deepLink, webUrl: deepLink }
+        }]
+    });
+};
 
     const handleWhatsAppShare = (item) => {
         const text = getShareMessage(item);
@@ -136,11 +134,11 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             ? (lang === 'ko' ? `\n💡 여기서 사면 ${savings}€나 아낄 수 있어요!` : `\n💡 Save ${savings}€ here!`)
             : "";
 
-        const messages = {
-            ko: `🛒 [가격비교] ${item.name}\n🥇 최저가: ${item.minPrice}€ (${item.bestStore})${savingsText}`,
-            en: `🛒 [Price Check] ${item.name}\n🥇 Best: ${item.minPrice}€ at ${item.bestStore}${savingsText}`,
-            de: `🛒 [Preisvergleich] ${item.name}\n🥇 Günstigster: ${item.minPrice}€ bei ${item.bestStore}${savingsText}`,
-        };
+            const messages = {
+                ko: `최저가 ${item.minPrice}€ 발견! (${item.bestStore})\n지금 확인하면 ${savings}€ 절약 가능 💰`,
+                en: `Best price ${item.minPrice}€ at ${item.bestStore}\nSave ${savings}€ right now! 💰`,
+                de: `Bestpreis ${item.minPrice}€ bei ${item.bestStore}\nSparen Sie jetzt ${savings}€! 💰`,
+            };
 
         return messages[lang];
     };
