@@ -243,8 +243,8 @@ const App = () => {
     const [isMoreLoading, setIsMoreLoading] = useState(false); // 더보기 버튼 로딩 상태
     const [lastUpdate, setLastUpdate] = useState("");
     const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
-const [limitMessage, setLimitMessage] = useState("");
-const [limitTitle, setLimitTitle] = useState("");
+    const [limitMessage, setLimitMessage] = useState("");
+    const [limitTitle, setLimitTitle] = useState("");
 
     // ----------------------------------------------------------------------
     // 1. Firebase Initialization and Authentication 
@@ -418,7 +418,7 @@ const [limitTitle, setLimitTitle] = useState("");
             setSystemMessageHandler("저장 중 오류가 발생했습니다.", "error");
         }
     };
-   
+
     const limitMessages = {
         ko: {
             title: "한도 초과",
@@ -500,59 +500,59 @@ Schema:
 }
 `;
 
-const generateWithRetry = async (retries = 3) => {
-    let lastError;
+            const generateWithRetry = async (retries = 3) => {
+                let lastError;
 
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            // API 호출
-            return await genAI.models.generateContent({
-                model: "gemini-2.5-flash-preview-09-2025",
-                contents: [
-                    {
-                        role: "user",
-                        parts: [{ text: `${systemPrompt}\n\nUser Query: ${userQuery}` }],
-                    },
-                ],
-            });
-        }catch (error) {
-            setIsLoading(false); // 로딩 해제
-        
-            const lang = currentLang || 'ko';
-            const apiCode = error?.error?.code || error?.status;
-            const apiMessage = error?.error?.message || error?.message || "";
+                for (let attempt = 1; attempt <= retries; attempt++) {
+                    try {
+                        // API 호출
+                        return await genAI.models.generateContent({
+                            model: "gemini-2.5-flash-preview-09-2025",
+                            contents: [
+                                {
+                                    role: "user",
+                                    parts: [{ text: `${systemPrompt}\n\nUser Query: ${userQuery}` }],
+                                },
+                            ],
+                        });
+                    } catch (error) {
+                        setIsLoading(false); // 로딩 해제
 
-            // 🔴 429 에러 (할당량 초과) 발생 시 "즉시" 팝업창 띄우기
-            if (apiCode === 429 || apiMessage.includes("429") || apiMessage.includes("QUOTA")) {
-                setLimitTitle(limitMessages[lang].title); // 제목 상태 추가 필요
-                setLimitMessage(limitMessages[lang].limit);
-                setIsLimitModalOpen(true);
-                return;
-            }
-        // 🔴 503 에러 (서버 과부하) 발생 시 안내 메시지
-            if (apiCode === 503 || apiMessage.includes("503") || apiMessage.includes("overloaded")) {
-                setLimitTitle(limitMessages[lang].title); 
-                setLimitMessage(limitMessages[lang].overloaded);
-                setIsLimitModalOpen(true);
-                return;
-            }
+                        const lang = currentLang || 'ko';
+                        const apiCode = error?.error?.code || error?.status;
+                        const apiMessage = error?.error?.message || error?.message || "";
 
-            // 기타 에러
-            setSystemMessageHandler(`Error: ${apiMessage}`, 'error');
-        }
-    }
-    throw lastError;
-};
-            
+                        // 🔴 429 에러 (할당량 초과) 발생 시 "즉시" 팝업창 띄우기
+                        if (apiCode === 429 || apiMessage.includes("429") || apiMessage.includes("QUOTA")) {
+                            setLimitTitle(limitMessages[lang].title); // 제목 상태 추가 필요
+                            setLimitMessage(limitMessages[lang].limit);
+                            setIsLimitModalOpen(true);
+                            return;
+                        }
+                        // 🔴 503 에러 (서버 과부하) 발생 시 안내 메시지
+                        if (apiCode === 503 || apiMessage.includes("503") || apiMessage.includes("overloaded")) {
+                            setLimitTitle(limitMessages[lang].title);
+                            setLimitMessage(limitMessages[lang].overloaded);
+                            setIsLimitModalOpen(true);
+                            return;
+                        }
+
+                        // 기타 에러
+                        setSystemMessageHandler(`Error: ${apiMessage}`, 'error');
+                    }
+                }
+                throw lastError;
+            };
+
             const result = await generateWithRetry();
             if (!result) return;
             let text = "";
-            
+
             // 1순위: result.response.text() 시도
             if (result.response && typeof result.response.text === 'function') {
                 text = await result.response.text();
-            }          
-          
+            }
+
             // 2순위: 보내주신 로그 구조처럼 candidates가 있는 경우 (안전장치)
             else if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
                 text = result.candidates[0].content.parts[0].text;
@@ -561,7 +561,7 @@ const generateWithRetry = async (retries = 3) => {
             else if (typeof result.text === 'function') {
                 text = await result.text();
             }
-        
+
             if (!text) {
                 // 이 메시지가 뜨면 구조가 정말 특이한 것입니다.
                 console.error("Text not found in result:", result);
@@ -572,11 +572,11 @@ const generateWithRetry = async (retries = 3) => {
             let parsedRecipe = null;
             try {
                 const sanitizedText = text
-  .replace(/```json|```/g, "")
-  .replace(/^\s*[\r\n]/gm, "")
-  .trim();
+                    .replace(/```json|```/g, "")
+                    .replace(/^\s*[\r\n]/gm, "")
+                    .trim();
 
-const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
+                const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                 if (!jsonMatch) throw new Error("JSON pattern not found");
 
                 const cleanJson = jsonMatch[0].replace(/\u00A0/g, " ");
@@ -591,12 +591,12 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                 };
 
                 if (!parsedRecipe.name) throw new Error("Invalid structure");
-                
+
             } catch (e) {
                 console.error("JSON 파싱 실패:", e);
                 throw new Error("레시피 형식이 올바르지 않습니다.");
             }
-        
+
             // 4. 상태 업데이트 (성공했을 때만 이 지점에 도달함)
             setGeneratedRecipe(parsedRecipe); // 내부 보관용
             setSelectedRecipe(parsedRecipe);  // 모달 띄우기용 ⭐ 핵심
@@ -620,11 +620,11 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
 
         } catch (error) {
             console.error("Generation API Error:", error);
-        
+
             // 🔴 503 에러(서버 과부하) 및 일시적 오류 처리 추가
             if (error.message.includes("503") || error.message.includes("overloaded") || error.message.includes("UNAVAILABLE")) {
                 setSystemMessageHandler(
-                    "현재 구글 AI 서버에 접속자가 많아 잠시 지연되고 있습니다. 1~2분 후에 다시 시도해주시면 감사하겠습니다! 😊", 
+                    "현재 구글 AI 서버에 접속자가 많아 잠시 지연되고 있습니다. 1~2분 후에 다시 시도해주시면 감사하겠습니다! 😊",
                     'error'
                 );
             } else if (error.message.includes("permissions")) {
@@ -745,24 +745,44 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                     </div>
                 </div>
 
-                {/* 💡 이 부분이 추가되었습니다: 저장 버튼 */}
-                <div className="mt-10 border-t pt-6">
+                {/* 💾 레시피 저장 및 공유 영역 */}
+                <div className="mt-8 border-t border-slate-100 pt-6 px-2">
                     {!isRecipeSaved ? (
                         <button
                             onClick={handleSaveRecipe}
-                            disabled={isLoading}
-                            className={`w-full py-4 rounded-2xl font-black text-xl shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
-                ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
+                            disabled={isLoading || !generatedRecipe}
+                            className={`w-full py-4 rounded-2xl font-black text-lg shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3
+                ${isLoading
+                                    ? 'bg-slate-300 cursor-not-allowed text-white'
+                                    : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white'
+                                }`}
                         >
                             {isLoading ? (
-                                currentLang === 'ko' ? '⏳ 처리 중...' : (currentLang === 'de' ? '⏳ Wird bearbeitet...' : '⏳ Processing...')
+                                <>
+                                    <span className="animate-spin">⏳</span>
+                                    {currentLang === 'ko' ? '저장 중...' : (currentLang === 'de' ? 'Wird gespeichert...' : 'Saving...')}
+                                </>
                             ) : (
-                                currentLang === 'ko' ? '🚀 레시피 저장하기' : (currentLang === 'de' ? '🚀 Rezept speichern' : '🚀 Save Recipe')
+                                <>
+                                    <span>🚀</span>
+                                    {currentLang === 'ko' ? '레시피 저장하고 공유하기' : (currentLang === 'de' ? 'Rezept speichern & teilen' : 'Save & Share Recipe')}
+                                </>
                             )}
                         </button>
                     ) : (
-                        <div className="w-full py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold text-center border-2 border-dashed border-gray-300">
-                            {currentLang === 'ko' ? '✅ 저장되었습니다!' : (currentLang === 'de' ? '✅ Gespeichert!' : '✅ Saved!')}
+                        <div className="space-y-3">
+                            {/* ✅ 저장 완료 메시지 */}
+                            <div className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200">
+                                {currentLang === 'ko' ? '✅ 레시피가 저장되었습니다!' : (currentLang === 'de' ? '✅ Rezept gespeichert!' : '✅ Recipe Saved!')}
+                            </div>
+
+                            {/* 🔗 저장 후 나타나는 카카오톡 공유 버튼 (선택 사항) */}
+                            <button
+                                onClick={() => shareToKakao(generatedRecipe, currentLang)}
+                                className="w-full py-3 bg-[#FEE500] text-[#3A1D1D] rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90"
+                            >
+                                카카오톡으로 공유하기
+                            </button>
                         </div>
                     )}
                 </div>
@@ -905,31 +925,31 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                                         );
                                     })}
                                 </div>
-                                
+
                                 {/* 레시피 하단 컨트롤 영역 - 완전 중앙 정렬 및 투명 배경 적용 */}
-<div className="mt-16 mb-24 w-full px-4">
-    {/* justify-center를 사용하여 두 버튼을 화면 정중앙에 모읍니다 */}
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-        
-        {/* 1. 레시피 더 보기 버튼 */}
-        {hasMore && (
-            <div className="w-full sm:w-auto">
-                <button
-                    onClick={() => fetchRecipes(false)}
-                    disabled={isMoreLoading}
-                    className="w-full sm:w-[220px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
-                >
-                    {isMoreLoading ? "Loading..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")}
-                </button>
-            </div>
-        )}
+                                <div className="mt-16 mb-24 w-full px-4">
+                                    {/* justify-center를 사용하여 두 버튼을 화면 정중앙에 모읍니다 */}
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+
+                                        {/* 1. 레시피 더 보기 버튼 */}
+                                        {hasMore && (
+                                            <div className="w-full sm:w-auto">
+                                                <button
+                                                    onClick={() => fetchRecipes(false)}
+                                                    disabled={isMoreLoading}
+                                                    className="w-full sm:w-[220px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                                >
+                                                    {isMoreLoading ? "Loading..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")}
+                                                </button>
+                                            </div>
+                                        )}
 
 
-        
-    </div>
-</div>
+
+                                    </div>
+                                </div>
                             </section>
-                                   
+
                         </div>
 
                         <div className="w-full">
@@ -967,24 +987,24 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                                         onUpdateData={(time) => setLastUpdate(time)}
                                     />
                                 </div>
-                                
+
                             </section>
-                             {/* 2. 제보 버튼 (배경 투명 & 이메일 연결) */}
-                             <div className="w-full mt-12 mb-20 flex flex-col items-center">
-    <div className="w-full max-w-6xl px-4 flex flex-col items-center gap-3">
-        {/* 설명 텍스트 (선택 사항) */}
-        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
-            {/* {currentLang === 'ko' ? "정보 수정 및 상품 제보" : "Report Data"} */}
-        </p>
-        
-        <a 
-            href="mailto:matagom10@gmail.com"
-            className="w-full sm:w-[280px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-        >
-            <span>{currentLang === 'ko' ? "상품 및 오류 제보 ✍️" : "REPORT DATA OR ERROR ✍️"}</span>
-        </a>
-    </div>
-</div>
+                            {/* 2. 제보 버튼 (배경 투명 & 이메일 연결) */}
+                            <div className="w-full mt-12 mb-20 flex flex-col items-center">
+                                <div className="w-full max-w-6xl px-4 flex flex-col items-center gap-3">
+                                    {/* 설명 텍스트 (선택 사항) */}
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">
+                                        {/* {currentLang === 'ko' ? "정보 수정 및 상품 제보" : "Report Data"} */}
+                                    </p>
+
+                                    <a
+                                        href="mailto:matagom10@gmail.com"
+                                        className="w-full sm:w-[280px] px-8 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <span>{currentLang === 'ko' ? "상품 및 오류 제보 ✍️" : "REPORT DATA OR ERROR ✍️"}</span>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </main>
@@ -998,44 +1018,45 @@ const jsonMatch = sanitizedText.match(/\{[\s\S]*\}/);
                             <GermanMartTips lang={currentLang} />
                         </div>
                     </div>
-                    
+
                 )}
 
                 <Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
                 {selectedRecipe && (
                     <RecipeModal
-                        recipe={selectedRecipe}
-                       onClose={() => {
-            setSelectedRecipe(null);
-            setGeneratedRecipe(null); // 닫을 때 생성된 레시피도 초기화
-        }}
-                        currentLang={currentLang}
-                        t={t}
-                        shareToKakao={shareToKakao}
-                        shareToWhatsApp={shareToWhatsApp}
-                    />
+                    recipe={selectedRecipe}
+                    onClose={() => {
+                        setSelectedRecipe(null);
+                        setGeneratedRecipe(null);
+                    }}
+                    currentLang={currentLang}
+                    t={t}
+                    shareToKakao={shareToKakao}
+                    shareToWhatsApp={shareToWhatsApp}
+                    handleSaveRecipe={handleSaveRecipe} // 🌟 이 부분을 추가!
+                />
                 )}
                 {/* 🔴 사용량 초과 모달 */}
                 {isLimitModalOpen && (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl">
-            <div className="text-5xl mb-4">🍽️</div>
-            {/* 제목 다국어 적용 */}
-            <h3 className="text-xl font-black text-slate-800 mb-2">
-                {limitTitle || "Limit"} 
-            </h3>
-            <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line mb-6">
-                {limitMessage}
-            </p>
-            <button
-                onClick={() => setIsLimitModalOpen(false)}
-                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all"
-            >
-                {limitMessages[currentLang || 'ko'].button}
-            </button>
-        </div>
-    </div>
-)}
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl">
+                            <div className="text-5xl mb-4">🍽️</div>
+                            {/* 제목 다국어 적용 */}
+                            <h3 className="text-xl font-black text-slate-800 mb-2">
+                                {limitTitle || "Limit"}
+                            </h3>
+                            <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line mb-6">
+                                {limitMessage}
+                            </p>
+                            <button
+                                onClick={() => setIsLimitModalOpen(false)}
+                                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all"
+                            >
+                                {limitMessages[currentLang || 'ko'].button}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

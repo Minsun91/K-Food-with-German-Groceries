@@ -23,6 +23,7 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     const [prices, setPrices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, "prices", "latest"), (snapshot) => {
@@ -46,30 +47,46 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
         const params = new URLSearchParams(window.location.search);
         const searchQuery = params.get('search');
 
-        if (searchQuery) {
-            // 검색어를 설정하고 스크롤을 리스트 쪽으로 이동
+        // 이미 스크롤을 했거나 검색어가 없으면 실행 안 함
+        if (searchQuery && !hasAutoScrolled && prices.length > 0) {
             const decodedSearch = decodeURIComponent(searchQuery);
             setSearchTerm(decodedSearch);
 
-            // 데이터 로딩 후 스크롤 이동을 위해 약간의 지연시간 부여
+            // 검색 위치로 부드럽게 이동
             setTimeout(() => {
-                window.scrollTo({ top: 400, behavior: 'smooth' });
+                const searchElement = document.querySelector('.relative.group'); // 검색창 위치
+                if (searchElement) {
+                    searchElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                // 🌟 중요: 스크롤 완료 후 다시는 실행 안 되게 잠금!
+                setHasAutoScrolled(true);
+                window.history.replaceState({}, '', window.location.pathname);
             }, 800);
         }
-    }, [prices]);
+    }, [prices, hasAutoScrolled]);
 
     const filteredAndGroupedData = useMemo(() => {
-        const term = searchTerm.toLowerCase().trim();
-        const filtered = prices.filter(p =>
-            p.item.toLowerCase().includes(term) ||
-            p.mart.toLowerCase().includes(term) ||
-            (p.searchKeyword && p.searchKeyword.toLowerCase().includes(term))
-        );
+        // 1. 검색어를 공백이나 + 기호 기준으로 쪼개서 배열로 만듭니다.
+        // 예: "비비고+햇바삭" -> ["비비고", "햇바삭"]
+        const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
 
+        const filtered = prices.filter(p => {
+            // 검색어가 없으면 모든 상품 보여주기
+            if (searchWords.length === 0) return true;
+
+            // 비교할 대상 텍스트 (상품명, 마트, 키워드 합치기)
+            const targetText = `${p.item} ${p.mart} ${p.searchKeyword || ""}`.toLowerCase();
+
+            // 🌟 핵심: 모든 단어가 포함되어 있는지 체크 (every)
+            // ["비비고", "햇바삭"]의 모든 단어가 targetText에 들어있어야 true
+            return searchWords.every(word => targetText.includes(word));
+        });
+
+        // --- 여기서부터는 기존의 그룹화(reduce) 로직과 동일합니다 ---
         const grouped = filtered.reduce((acc, obj) => {
             let key = obj.searchKeyword || "기타";
 
-            // 1. 상품별 카테고리화 로직
+            // 상품별 카테고리화 로직
             if (key.includes("신라면")) key = "🍜 신라면 (Shin Ramyun)";
             else if (key.includes("불닭")) key = "🔥 불닭볶음면 (Buldak)";
             else if (key.includes("짜파게티")) key = "🖤 짜파게티 (Chapagetti)";
@@ -79,27 +96,24 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             else if (key.includes("쿠쿠") || key.includes("Cuckoo")) key = "🍚 쿠쿠 밥솥 (Rice Cooker)";
             else if (key.includes("김치")) key = "🥬 종가집 김치 (Kimchi)";
             else if (key.includes("쌀")) key = "🌾 김포쌀 (Rice)";
+            // 필요한 경우 김 카테고리 추가
+            else if (key.includes("김")) key = "🌊 비비고 김 (Gim)";
 
             if (!acc[key]) acc[key] = [];
             acc[key].push(obj);
             return acc;
         }, {});
 
-        // 2. 각 그룹 내부 데이터 정렬 및 공유 데이터 주입
+        // 가격 정렬 및 최저가 계산 로직 (기존과 동일)
         Object.keys(grouped).forEach(key => {
-            // 가격 오름차순 정렬
             grouped[key].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-
-            // 최저가와 최고가 추출 (정렬된 상태이므로 처음과 끝)
             const minVal = parseFloat(grouped[key][0].price);
             const maxVal = parseFloat(grouped[key][grouped[key].length - 1].price);
-
-            // 🌟 중요: 그룹 내 각 아이템에 공유 시 필요한 정보들을 미리 저장
             grouped[key] = grouped[key].map(item => ({
                 ...item,
-                groupTitle: key,      // 카테고리 제목
-                minPrice: minVal,    // 최저가
-                maxPrice: maxVal     // 최고가
+                groupTitle: key,
+                minPrice: minVal,
+                maxPrice: maxVal
             }));
         });
 
@@ -108,17 +122,14 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
 
     if (loading) return <div className="py-20 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>;
 
-    // 검색어 정제 함수 (handleKakaoShare, handleWhatsAppShare 공용)
     const getCleanSearchQuery = (categoryName) => {
-        // 1. 이모지 및 특수문자 제거
-        let clean = categoryName.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, "").trim();
-        // 2. 여러 단어가 있을 경우 첫 번째 단어만 추출 (예: "참이슬 Soju" -> "참이슬")
-        // 만약 한글이 포함되어 있다면 한글 단어를 우선적으로 가져옵니다.
-        const words = clean.split(/\s+/);
-        const koreanWord = words.find(w => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(w));
-
-        return koreanWord || words[0]; // 한글 단어가 있으면 한글, 없으면 첫 번째 단어 반환
+        if (!categoryName) return "";
+        let clean = categoryName.replace(/\(.*\)/g, "").trim();
+        clean = clean.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, "").trim();
+        const words = clean.split(/\s+/).filter(w => w.length > 0);
+        return words.slice(0, 2).join(" ");
     };
+
 
     const handleKakaoShare = (item) => {
         if (!window.Kakao) return;
@@ -253,46 +264,46 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
 
             {/* 📦 3. 상품 리스트 */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-            {Object.keys(filteredAndGroupedData).length > 0 ? (
-        Object.keys(filteredAndGroupedData)
-        .sort((a, b) => {
-            if (a === '기타') return 1;
-            if (b === '기타') return -1;
-            
-            // 🌟 역순 정렬 (김포쌀을 아래로 보내고 최신 제품을 위로)
-            return b.localeCompare(a); 
-        })
-        .map((category) => {
-            const items = filteredAndGroupedData[category];
-            const firstItem = items[0];
-            
-            // 🌟 NEW 배지 조건 (예: 가장 첫 번째 아이템이 최근 24시간 이내 업데이트 되었는지)
-            // 실제 데이터에 날짜가 없다면, 특정 카테고리(예: 선크림)를 강제로 NEW로 보이게 할 수도 있습니다.
-            const isNew = category.includes("선크림") || category.includes("햇반"); 
+                {Object.keys(filteredAndGroupedData).length > 0 ? (
+                    Object.keys(filteredAndGroupedData)
+                        .sort((a, b) => {
+                            if (a === '기타') return 1;
+                            if (b === '기타') return -1;
 
-            const shareData = {
-                name: category,
-                minPrice: firstItem.minPrice,
-                maxPrice: firstItem.maxPrice,
-                bestStore: firstItem.bestStore || firstItem.mart
-            };
+                            // 🌟 역순 정렬 (김포쌀을 아래로 보내고 최신 제품을 위로)
+                            return b.localeCompare(a);
+                        })
+                        .map((category) => {
+                            const items = filteredAndGroupedData[category];
+                            const firstItem = items[0];
+
+                            // 🌟 NEW 배지 조건 (예: 가장 첫 번째 아이템이 최근 24시간 이내 업데이트 되었는지)
+                            // 실제 데이터에 날짜가 없다면, 특정 카테고리(예: 선크림)를 강제로 NEW로 보이게 할 수도 있습니다.
+                            const isNew = category.includes("선크림") || category.includes("햇반");
+
+                            const shareData = {
+                                name: category,
+                                minPrice: firstItem.minPrice,
+                                maxPrice: firstItem.maxPrice,
+                                bestStore: firstItem.bestStore || firstItem.mart
+                            };
 
                             return (
                                 <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
-                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
-                                # {category}
-                                {isNew && (
-                                    <span className="animate-bounce inline-block bg-rose-500 text-[8px] text-white px-1.5 py-0.5 rounded-full font-bold">
-                                        NEW
-                                    </span>
-                                )}
-                            </h3>
-                            <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-                                {items.length}개 결과
-                            </span>
-                        </div>
+                                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
+                                                # {category}
+                                                {isNew && (
+                                                    <span className="animate-bounce inline-block bg-rose-500 text-[8px] text-white px-1.5 py-0.5 rounded-full font-bold">
+                                                        NEW
+                                                    </span>
+                                                )}
+                                            </h3>
+                                            <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
+                                                {items.length}개 결과
+                                            </span>
+                                        </div>
 
                                         {/* 🔗 상단으로 옮겨진 깔끔한 공유 버튼 */}
                                         <div className="flex gap-1.5">

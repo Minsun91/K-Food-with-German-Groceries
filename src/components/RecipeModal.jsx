@@ -1,19 +1,31 @@
-import React from 'react';
-
-const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
+import React, { useState } from 'react';
 
 const RecipeModal = ({ 
     recipe, 
     onClose, 
     shareToKakao,
     shareToWhatsApp, 
+    handleSaveRecipe, 
     currentLang, 
     t 
 }) => {
-    // 레시피 데이터가 없으면 아무것도 렌더링하지 않음
+    const [isSaved, setIsSaved] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
     if (!recipe) return null;
 
-    // 마트별 검색 URL
+    const onSaveClick = async () => {
+        setIsSaving(true);
+        try {
+            await handleSaveRecipe(); 
+            setIsSaved(true);
+        } catch (error) {
+            console.error("저장 실패:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const MARKET_URLS = {
         rewe: "https://shop.rewe.de/auswahl?search=",
         lidl: "https://www.lidl.de/s/?q=",
@@ -21,7 +33,6 @@ const RecipeModal = ({
         aldi: "https://www.aldi-sued.de/de/suche.html?q="
     };
 
-    // 언어별 데이터 매핑 (안전하게 처리)
     const displayName = recipe[`name_${currentLang}`] || recipe.name_ko || recipe.name || "Untitled";
     const displayIngredients = recipe[`ingredients_${currentLang}`] || recipe.ingredients || [];
     const displaySteps = recipe[`steps_${currentLang}`] || recipe.instructions || recipe.steps || [];
@@ -35,7 +46,7 @@ const RecipeModal = ({
                 className="bg-white w-full max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden relative animate-in slide-in-from-bottom duration-300"
                 onClick={e => e.stopPropagation()}
             >
-                {/* 상단 닫기 버튼 */}
+                {/* 닫기 버튼 */}
                 <button 
                     onClick={onClose}
                     className="absolute top-5 right-6 z-10 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
@@ -45,7 +56,6 @@ const RecipeModal = ({
                     </svg>
                 </button>
 
-                {/* 내부 내용 영역 */}
                 <div className="overflow-y-auto p-6 sm:p-10 custom-scrollbar">
                     <h2 className="text-2xl sm:text-4xl font-black text-slate-800 mb-8 leading-tight break-keep pr-8">
                         {displayName}
@@ -64,9 +74,9 @@ const RecipeModal = ({
                                         <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
                                             <span className="font-medium text-slate-700">{itemName}</span>
                                             <div className="flex gap-2">
-                                                <a href={`${MARKET_URLS.rewe}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#CC0000] text-white rounded-lg hover:opacity-80">REWE</a>
-                                                <a href={`${MARKET_URLS.lidl}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#0050AA] text-white rounded-lg hover:opacity-80">Lidl</a>
-                                                <a href={`${MARKET_URLS.edeka}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#FFD400] text-[#003051] rounded-lg hover:opacity-80">EDEKA</a>
+                                                <a href={`${MARKET_URLS.rewe}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#CC0000] text-white rounded-lg hover:opacity-80 transition-opacity">REWE</a>
+                                                <a href={`${MARKET_URLS.lidl}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#0050AA] text-white rounded-lg hover:opacity-80 transition-opacity">Lidl</a>
+                                                <a href={`${MARKET_URLS.edeka}${encodeURIComponent(itemName)}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-[11px] font-bold bg-[#FFD400] text-[#003051] rounded-lg hover:opacity-80 transition-opacity">EDEKA</a>
                                             </div>
                                         </div>
                                     );
@@ -92,17 +102,43 @@ const RecipeModal = ({
                         </div>
                     </div>
 
-                    {/* 하단 공유 버튼 */}
+                    {/* 하단 버튼 영역 */}
                     <div className="mt-12 flex flex-col gap-3">
-                        <div className="flex gap-3">
-                            <button onClick={() => shareToWhatsApp?.(recipe)} className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                                <span className="text-xl">💬</span> WhatsApp
+                        {!isSaved ? (
+                            <button 
+                                onClick={onSaveClick}
+                                disabled={isSaving}
+                                className={`w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
+                                    ${isSaving ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+                            >
+                                {isSaving ? "⏳ 저장 중..." : "🚀 레시피 저장하기"}
                             </button>
-                            <button onClick={() => shareToKakao?.(recipe)} className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                                <span className="text-xl">💛</span> Kakao
-                            </button>
-                        </div>
-                        <button onClick={onClose} className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95">
+                        ) : (
+                            <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200 text-sm">
+                                    ✅ 레시피가 저장되었습니다! 이제 공유해보세요.
+                                </div>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => shareToWhatsApp?.(recipe)} 
+                                        className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
+                                    >
+                                        <span className="text-xl">💬</span> WhatsApp
+                                    </button>
+                                    <button 
+                                        onClick={() => shareToKakao?.(recipe)} 
+                                        className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
+                                    >
+                                        <span className="text-xl">💛</span> Kakao
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={onClose} 
+                            className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95 transition-colors"
+                        >
                             {t?.close || "Close"}
                         </button>
                     </div>
