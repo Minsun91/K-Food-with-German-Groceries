@@ -45,19 +45,19 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const searchQuery = params.get('search');
-        
+
         if (searchQuery) {
             // 검색어를 설정하고 스크롤을 리스트 쪽으로 이동
             const decodedSearch = decodeURIComponent(searchQuery);
             setSearchTerm(decodedSearch);
-            
+
             // 데이터 로딩 후 스크롤 이동을 위해 약간의 지연시간 부여
             setTimeout(() => {
                 window.scrollTo({ top: 400, behavior: 'smooth' });
             }, 800);
         }
-    }, [prices]);  
-    
+    }, [prices]);
+
     const filteredAndGroupedData = useMemo(() => {
         const term = searchTerm.toLowerCase().trim();
         const filtered = prices.filter(p =>
@@ -109,59 +109,59 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     if (loading) return <div className="py-20 text-center text-slate-400 font-bold">데이터를 불러오는 중...</div>;
 
     // 검색어 정제 함수 (handleKakaoShare, handleWhatsAppShare 공용)
-const getCleanSearchQuery = (categoryName) => {
-    // 1. 이모지 및 특수문자 제거
-    let clean = categoryName.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, "").trim();
-    // 2. 여러 단어가 있을 경우 첫 번째 단어만 추출 (예: "참이슬 Soju" -> "참이슬")
-    // 만약 한글이 포함되어 있다면 한글 단어를 우선적으로 가져옵니다.
-    const words = clean.split(/\s+/);
-    const koreanWord = words.find(w => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(w));
-    
-    return koreanWord || words[0]; // 한글 단어가 있으면 한글, 없으면 첫 번째 단어 반환
-};
+    const getCleanSearchQuery = (categoryName) => {
+        // 1. 이모지 및 특수문자 제거
+        let clean = categoryName.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, "").trim();
+        // 2. 여러 단어가 있을 경우 첫 번째 단어만 추출 (예: "참이슬 Soju" -> "참이슬")
+        // 만약 한글이 포함되어 있다면 한글 단어를 우선적으로 가져옵니다.
+        const words = clean.split(/\s+/);
+        const koreanWord = words.find(w => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(w));
 
-const handleKakaoShare = (item) => {
-    if (!window.Kakao) return;
-    if (!window.Kakao.isInitialized()) window.Kakao.init("c78231a56667f351595ae8b2d87b2152");
-
-    // 핵심 키워드만 추출 (예: "참이슬")
-    const searchKeyword = getCleanSearchQuery(item.name);
-    const deepLink = `${window.location.origin}${window.location.pathname}?search=${encodeURIComponent(searchKeyword)}`;
-
-    const savings = (item.maxPrice - item.minPrice).toFixed(2);
-
-    window.Kakao.Share.sendDefault({
-        objectType: 'feed',
-        content: {
-            title: `🛒 ${item.name} 최저가 정보`,
-            description: `🥇 최저가: ${item.minPrice}€ (${item.bestStore})\n💰 지금 확인하면 ${savings}€ 절약!`,
-            imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
-            link: { mobileWebUrl: deepLink, webUrl: deepLink },
-        },
-        buttons: [{
-            title: '가격 확인하기',
-            link: { mobileWebUrl: deepLink, webUrl: deepLink }
-        }]
-    });
-};
-
-const handleWhatsAppShare = (item) => {
-    const lang = currentLang === 'ko' ? 'en' : currentLang; 
-    const martEn = MART_NAMES_EN[item.bestStore] || item.bestStore;
-    const savings = (item.maxPrice - item.minPrice).toFixed(2);
-    
-    // 핵심 키워드 추출
-    const searchKeyword = getCleanSearchQuery(item.name);
-    const deepLink = `${window.location.origin}${window.location.pathname}?search=${encodeURIComponent(searchKeyword)}`;
-
-    const messages = {
-        en: `🛒 [Price Check] ${item.name}\n🥇 Best Price: ${item.minPrice}€ at ${martEn}\n💰 Save ${savings}€ here!\n\nCheck now: ${deepLink}`,
-        de: `🛒 [Preisvergleich] ${item.name}\n🥇 Bestpreis: ${item.minPrice}€ bei ${martEn}\n💰 Sparen Sie ${savings}€!\n\nJetzt prüfen: ${deepLink}`
+        return koreanWord || words[0]; // 한글 단어가 있으면 한글, 없으면 첫 번째 단어 반환
     };
 
-    const text = messages[lang] || messages['en'];
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-};
+    const handleKakaoShare = (item) => {
+        if (!window.Kakao) return;
+        if (!window.Kakao.isInitialized()) window.Kakao.init("c78231a56667f351595ae8b2d87b2152");
+
+        // 핵심 키워드만 추출 (예: "참이슬")
+        const searchKeyword = getCleanSearchQuery(item.name);
+        const deepLink = `${window.location.origin}${window.location.pathname}?search=${encodeURIComponent(searchKeyword)}`;
+
+        const savings = (item.maxPrice - item.minPrice).toFixed(2);
+
+        window.Kakao.Share.sendDefault({
+            objectType: 'feed',
+            content: {
+                title: `🛒 ${item.name} 최저가 정보`,
+                description: `🥇 최저가: ${item.minPrice}€ (${item.bestStore})\n💰 지금 확인하면 ${savings}€ 절약!`,
+                imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
+                link: { mobileWebUrl: deepLink, webUrl: deepLink },
+            },
+            buttons: [{
+                title: '가격 확인하기',
+                link: { mobileWebUrl: deepLink, webUrl: deepLink }
+            }]
+        });
+    };
+
+    const handleWhatsAppShare = (item) => {
+        const lang = currentLang === 'ko' ? 'en' : currentLang;
+        const martEn = MART_NAMES_EN[item.bestStore] || item.bestStore;
+        const savings = (item.maxPrice - item.minPrice).toFixed(2);
+
+        // 핵심 키워드 추출
+        const searchKeyword = getCleanSearchQuery(item.name);
+        const deepLink = `${window.location.origin}${window.location.pathname}?search=${encodeURIComponent(searchKeyword)}`;
+
+        const messages = {
+            en: `🛒 [Price Check] ${item.name}\n🥇 Best Price: ${item.minPrice}€ at ${martEn}\n💰 Save ${savings}€ here!\n\nCheck now: ${deepLink}`,
+            de: `🛒 [Preisvergleich] ${item.name}\n🥇 Bestpreis: ${item.minPrice}€ bei ${martEn}\n💰 Sparen Sie ${savings}€!\n\nJetzt prüfen: ${deepLink}`
+        };
+
+        const text = messages[lang] || messages['en'];
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    };
 
     const getShareMessage = (item) => {
         const lang = currentLang || 'ko';
@@ -172,11 +172,11 @@ const handleWhatsAppShare = (item) => {
             ? (lang === 'ko' ? `\n💡 여기서 사면 ${savings}€나 아낄 수 있어요!` : `\n💡 Save ${savings}€ here!`)
             : "";
 
-            const messages = {
-                ko: `최저가 ${item.minPrice}€ 발견! (${item.bestStore})\n지금 확인하면 ${savings}€ 절약 가능 💰`,
-                en: `Best price ${item.minPrice}€ at ${item.bestStore}\nSave ${savings}€ right now! 💰`,
-                de: `Bestpreis ${item.minPrice}€ bei ${item.bestStore}\nSparen Sie jetzt ${savings}€! 💰`,
-            };
+        const messages = {
+            ko: `최저가 ${item.minPrice}€ 발견! (${item.bestStore})\n지금 확인하면 ${savings}€ 절약 가능 💰`,
+            en: `Best price ${item.minPrice}€ at ${item.bestStore}\nSave ${savings}€ right now! 💰`,
+            de: `Bestpreis ${item.minPrice}€ bei ${item.bestStore}\nSparen Sie jetzt ${savings}€! 💰`,
+        };
 
         return messages[lang];
     };
@@ -217,76 +217,92 @@ const handleWhatsAppShare = (item) => {
 
             {/* 🔍 2. 검색바 */}
             {/* 🔍 2. 검색바 */}
-<div className="px-4 md:px-6 pt-4 pb-2">
-    <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-            🔍
-        </div>
-        <input
-            type="text"
-            placeholder={
-                currentLang === 'ko' ? "상품명이나 마트 이름을 검색해보세요" :
-                currentLang === 'de' ? "Produkte oder Märkte suchen..." :
-                "Search products or marts..."
-            }
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-12 py-3.5 bg-slate-100/80 border-none rounded-2xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all"
-        />
-        
-        {/* ❌ 검색어 초기화 (ESC 역할) 버튼 */}
-        {searchTerm && (
-            <button
-                onClick={() => setSearchTerm("")}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-            >
-                <div className="bg-slate-200/50 hover:bg-slate-200 rounded-full p-1">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+            <div className="px-4 md:px-6 pt-4 pb-2">
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        🔍
+                    </div>
+                    <input
+                        type="text"
+                        placeholder={
+                            currentLang === 'ko' ? "상품명이나 마트 이름을 검색해보세요" :
+                                currentLang === 'de' ? "Produkte oder Märkte suchen..." :
+                                    "Search products or marts..."
+                        }
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-12 py-3.5 bg-slate-100/80 border-none rounded-2xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    />
+
+                    {/* ❌ 검색어 초기화 (ESC 역할) 버튼 */}
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm("")}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <div className="bg-slate-200/50 hover:bg-slate-200 rounded-full p-1">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </div>
+                        </button>
+                    )}
                 </div>
-            </button>
-        )}
-    </div>
-</div>
+            </div>
 
             {/* 📦 3. 상품 리스트 */}
-{/* 📦 3. 상품 리스트 */}
-<div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-                {Object.keys(filteredAndGroupedData).length > 0 ? (
-                    Object.keys(filteredAndGroupedData)
-                        .sort((a, b) => a === '기타' ? 1 : b === '기타' ? -1 : a.localeCompare(b))
-                        .map((category) => {
-                            // 해당 카테고리의 첫 번째 아이템 정보를 기준으로 공유 데이터 생성
-                            const firstItem = filteredAndGroupedData[category][0];
-                            const shareData = {
-                                name: category,
-                                minPrice: firstItem.minPrice,
-                                maxPrice: firstItem.maxPrice,
-                                bestStore: firstItem.bestStore || firstItem.mart
-                            };
+            <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
+            {Object.keys(filteredAndGroupedData).length > 0 ? (
+        Object.keys(filteredAndGroupedData)
+        .sort((a, b) => {
+            if (a === '기타') return 1;
+            if (b === '기타') return -1;
+            
+            // 🌟 역순 정렬 (김포쌀을 아래로 보내고 최신 제품을 위로)
+            return b.localeCompare(a); 
+        })
+        .map((category) => {
+            const items = filteredAndGroupedData[category];
+            const firstItem = items[0];
+            
+            // 🌟 NEW 배지 조건 (예: 가장 첫 번째 아이템이 최근 24시간 이내 업데이트 되었는지)
+            // 실제 데이터에 날짜가 없다면, 특정 카테고리(예: 선크림)를 강제로 NEW로 보이게 할 수도 있습니다.
+            const isNew = category.includes("선크림") || category.includes("햇반"); 
+
+            const shareData = {
+                name: category,
+                minPrice: firstItem.minPrice,
+                maxPrice: firstItem.maxPrice,
+                bestStore: firstItem.bestStore || firstItem.mart
+            };
 
                             return (
                                 <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
-                                    {/* 🏷️ 카테고리 헤더: 제목 + 공유 버튼 배치 */}
-                                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-sm font-black text-slate-600 tracking-tight"># {category}</h3>
-                                            <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-                                                {filteredAndGroupedData[category].length}개 결과
-                                            </span>
-                                        </div>
-                                        
+                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
+                                # {category}
+                                {isNew && (
+                                    <span className="animate-bounce inline-block bg-rose-500 text-[8px] text-white px-1.5 py-0.5 rounded-full font-bold">
+                                        NEW
+                                    </span>
+                                )}
+                            </h3>
+                            <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
+                                {items.length}개 결과
+                            </span>
+                        </div>
+
                                         {/* 🔗 상단으로 옮겨진 깔끔한 공유 버튼 */}
                                         <div className="flex gap-1.5">
-                                            <button 
+                                            <button
                                                 onClick={() => handleKakaoShare(shareData)}
                                                 className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity"
                                             >
                                                 카톡
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => handleWhatsAppShare(shareData)}
                                                 className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity"
                                             >
