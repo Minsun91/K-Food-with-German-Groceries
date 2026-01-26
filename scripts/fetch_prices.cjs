@@ -12,44 +12,24 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
-
-// const marts = [
-//   { name: "한독몰", url: "https://handokmall.de/search?q=" },
-//   { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-//   { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-//   { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
-//   { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
-// ];
-
-// const targetItems = [
-//   { ko: "신라면", search: "Nongshim Shin Ramyun 120g single" },
-//   { ko: "불닭볶음면", search: "Samyang Buldak Original 140g single" },
-//   { ko: "비비고 두부(부침용)", search: "Bibigo Tofu for firm/frying" },
-//   { ko: "김포쌀 9.07kg", search: "Gimpo Rice 9.07kg (20lbs)" },
-//   { ko: "참이슬 프레쉬", search: "Jjinro Chamisul Fresh Soju 360ml" },
-//   { ko: "종가집 김치 500g", search: "Jongga Mat Kimchi 500g" }
-// ];
-
 const marts = [
-  { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  // { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
+  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
   { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
+  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, // ✨ Joybuy 추가!
+  // { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
 ];
 
 const targetItems = [
-  // { ko: "쿠쿠 밥솥", search: "Cuckoo CR-0331" },
-  // { ko: "불닭볶음면", search: "Samyang Buldak Ramen Original 140g single" },
-  // { ko: "참이슬 프레쉬", search: "Jinro Chamisul Fresh Soju 360ml" },
-  // { ko: "짜파게티", search: "Nongshim Chapagetti 140g single" },
-  // { ko: "샘표 진간장", search: "Sempio Jin Gold S Soy Sauce" },
-  // { ko: "비비고 갈비 왕교자", search: "Bibigo Mandu Dumplings 525g" }
-    { ko: "양반 들기름김", search: "Yangban Seasoned Seaweed" },
-    { ko: "CJ 햇반", search: "CJ Hetbahn Cooked Rice" }, 
-    { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
-    { ko: "맥심 모카골드", search: "Maxim Mocha Gold Mild" }
+  { ko: "신라면", search: "Nongshim Shin Ramyun" },
+  // { ko: "불닭볶음면", search: "Samyang Buldak Original" },
+  { ko: "짜파게티", search: "Nongshim Chapagetti" }, // ✨ 추가!
+  // { ko: "양반 들기름김", search: "Yangban Seasoned Seaweed" },
+  // { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
+  // { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
+  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
 ];
 
 async function updatePrices() {
@@ -70,7 +50,7 @@ async function updatePrices() {
   for (const itemObj of targetItems) {
     for (const mart of marts) {
       try {
-        const query = (mart.name === "다와요" || mart.name === "한독몰") ? itemObj.ko : itemObj.search;
+        const query = itemObj.search; 
         const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
         
         console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko}`);
