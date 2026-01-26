@@ -13,22 +13,26 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 const marts = [
-  { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
-  { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, 
-  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-21" }
+  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  // { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
+  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  // { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
+  // { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, 
+  // { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-21" },
+  { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" }
 ];
 
 const targetItems = [
   { ko: "신라면", search: "Nongshim Shin Ramyun" },
   { ko: "불닭볶음면", search: "Samyang Buldak Original" },
   { ko: "짜파게티", search: "Nongshim Chapagetti" },
-  { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
-  { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
-  { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
+  { ko: "종가집 김치", search: "Jongga Mat Kimchi" },
+  { ko: "진간장", search: "Sempio Soy Sauce" },
+  { ko: "비비고 두부(부침용)", search: "Bibigo Tofu" },
+  // { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
+  // { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
+  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
 ];
 
 async function updatePrices() {
@@ -50,17 +54,21 @@ async function updatePrices() {
     for (const mart of marts) {
       try {
         // 💡 한국 마트는 한국어로, 현지 마트는 영어로 검색하게 분기!
-        const isKoreanMart = ["한독몰", "와이마트", "다와요", "코켓"].includes(mart.name);
+        const isKoreanMart = ["한독몰", "와이마트", "다와요", "K-Shop"].includes(mart.name);
         const query = isKoreanMart ? itemObj.ko : itemObj.search; 
         
         const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
         
-        console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko}`);
-
+        console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko} (${query})`);
+        
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            prompt: `Find ONE single unit of ${itemObj.search}. Exclude bundles, cups, and multi-packs. If out of stock, still provide price but name it clearly.`,
+            // Prompt를 조금 더 정교하게 다듬었습니다 (단위 무게 포함 권장)
+            prompt: `Find the most relevant single product for "${itemObj.search}". 
+                     Return the exact product name and price. 
+                     Exclude bundles/multipacks if possible. 
+                     If multiple items exist, pick the standard size.`,
             schema: {
               type: "object",
               properties: {
@@ -90,12 +98,11 @@ async function updatePrices() {
     }
   }
 
-  // 2. ✅ 중복 제거 및 데이터 합치기
+  // 2. ✅ 중복 제거 및 데이터 합치기 (기존 로직 유지)
   const updatedData = [
     ...existingData.filter(old => {
       const matched = newResults.find(newItem => newItem.searchKeyword === old.searchKeyword && newItem.mart === old.mart);
       if (matched) {
-          // 새로 수집된 데이터에 '이전 가격' 정보를 심어줍니다.
           matched.prevPrice = old.price; 
           return false;
       }
@@ -111,7 +118,7 @@ async function updatePrices() {
       lastGlobalUpdate: new Date().toISOString(),
       status: "AI-Verified-Cumulative"
     });
-    console.log(`✨ 누적 데이터 총 ${updatedData.length}개 저장 완료! (신라면 보존됨)`);
+    console.log(`✨ 누적 데이터 총 ${updatedData.length}개 저장 완료!`);
   }
 }
 

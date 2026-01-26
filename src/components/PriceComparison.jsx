@@ -11,6 +11,7 @@ const DELIVERY_INFO = [
     { name: "Kocket", info: "49€↑ 무료" },
     { name: "K-shop", info: "70€↑ 무료 (냉동 제품 4.99€)"},
     { name: "JoyBuy", info: "Same day delivery €3.99" },
+    { name: "GoAsia", info: "39€↑ 무료" },
 ];
 
 const MART_NAMES_EN = {
@@ -20,7 +21,8 @@ const MART_NAMES_EN = {
     "아마존": "Amazon",
     "다와요": "Dawayo",
     "K-shop":"K-shop",
-    "JoyBuy" :"JoyBuy"
+    "JoyBuy" :"JoyBuy",
+    "GoAsia":"GoAsia"
 };
 
 const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
@@ -70,8 +72,6 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
     }, [prices, hasAutoScrolled]);
     
     const filteredAndGroupedData = useMemo(() => {
-        // 1. 검색어를 공백이나 + 기호 기준으로 쪼개서 배열로 만듭니다.
-        // 예: "비비고+햇바삭" -> ["비비고", "햇바삭"]
         const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
 
         const filtered = prices.filter(p => {
@@ -100,8 +100,6 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             else if (key.includes("쿠쿠") || key.includes("Cuckoo")) key = "🍚 쿠쿠 밥솥 (Rice Cooker)";
             else if (key.includes("김치")) key = "🥬 종가집 김치 (Kimchi)";
             else if (key.includes("쌀")) key = "🌾 김포쌀 (Rice)";
-            // 필요한 경우 김 카테고리 추가
-            else if (key.includes("김")) key = "🌊 비비고 김 (Gim)";
 
             if (!acc[key]) acc[key] = [];
             acc[key].push(obj);
