@@ -31,3 +31,8 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1; /* slate-300 */
 }
+
+body {
+  word-break: keep-all; /* 단어 단위로 줄바꿈 (한글 예쁘게 나옴) */
+  -webkit-font-smoothing: antialiased; /* 아이폰에서 글자 선명하게 */
+}

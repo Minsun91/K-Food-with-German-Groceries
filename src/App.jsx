@@ -72,7 +72,7 @@ const langConfig = {
         price_title: "Lowest Prices by Item",
         price_subtitle: "Check real-time lowest price information for key items.",
         last_update: "Last Updated",
-        coffee_title: "I'm Kfoodtracker, helping you save on your grocery bills.",
+        coffee_title: "Kfoodtracker, helping you save on your grocery bills.",
         coffee_desc: "A warm cup of coffee is a great help for server maintenance costs!",
         coffee_button: "Keep the Tracker Alive",
         mart_compare: "marts compared",
@@ -101,7 +101,7 @@ const langConfig = {
         price_title: "Tiefstpreise nach Artikeln",
         price_subtitle: "Prüfen Sie Echtzeit-Tiefstpreis-Informationen für wichtige Artikel.",
         last_update: "Zuletzt aktualisiert",
-        coffee_title: "Ich bin Kfoodtracker und helfe euch, eure Lebensmittelkosten zu senken.",
+        coffee_title: "Kfoodtracker, die App, mit der Sie Ihre Lebensmittelkosten senken können",
         coffee_desc: "Ein kleiner Kaffee hilft mir, die Serverkosten zu decken!",
         coffee_button: "Unterstütze den Server-Host",
         mart_compare: "Märkte im Vergleich",
@@ -804,20 +804,25 @@ Schema:
                         K-Food <span className="text-indigo-500 font-light">Tracker</span>
                     </h1>
 
-                    <nav className="flex items-center gap-4 md:gap-8">
+                    <nav className="flex items-center gap-2 md:gap-8"> {/* gap을 모바일에서 조금 줄임 */}
   <button 
     onClick={() => setActiveTab('price')}
-    className={`text-[13px] md:text-sm font-black transition-all ${activeTab === 'price' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+    className={`flex items-center gap-1 text-[13px] md:text-sm font-black whitespace-nowrap shrink-0 transition-all ${
+      activeTab === 'price' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'
+    }`}
   >
-    {/* ✅ 한국어일 때 '🛒 최저가', 아닐 때 langConfig의 price_title 활용 또는 직접 지정 */}
-    🛒 {currentLang === 'ko' ? '최저가' : (currentLang === 'de' ? 'Preise' : 'Prices')}
+    <span className="text-base">🛒</span> 
+    <span className="leading-none">{currentLang === 'ko' ? '최저가' : (currentLang === 'de' ? 'Preise' : 'Prices')}</span>
   </button>
+
   <button 
     onClick={() => setActiveTab('recipe')}
-    className={`text-[13px] md:text-sm font-black transition-all ${activeTab === 'recipe' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+    className={`flex items-center gap-1 text-[13px] md:text-sm font-black whitespace-nowrap shrink-0 transition-all ${
+      activeTab === 'recipe' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'
+    }`}
   >
-    {/* ✅ 한국어일 때 '👩‍🍳 레시피', 아닐 때 langConfig의 title 활용 또는 직접 지정 */}
-    👩‍🍳 {currentLang === 'ko' ? '레시피' : (currentLang === 'de' ? 'Rezepte' : 'Recipes')}
+    <span className="text-base">👩‍🍳</span>
+    <span className="leading-none">{currentLang === 'ko' ? '레시피' : (currentLang === 'de' ? 'Rezepte' : 'Recipes')}</span>
   </button>
 </nav>
 
@@ -848,8 +853,46 @@ Schema:
            <>The <span className="text-indigo-600">Smart</span> Choice in DE</>}
         </h2>
         <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-10">
-          {currentLang === 'ko' ? "주요 한인 마트 실시간 가격 비교부터 AI가 제안하는 맞춤형 K-레시피까지 한곳에서 확인하세요." : t?.subtitle}
+          {currentLang === 'ko' ? "주요 한인 마트 실시간 가격 비교부터 AI가 제안하는 맞춤형 K-레시피까지 한 곳에서 확인하세요." : t?.subtitle}
         </p>
+        <div className="flex justify-center gap-6 md:gap-12 mb-10">
+  {/* 1. 마트 비교 통계 */}
+  <div className="text-center">
+    <p className="text-2xl md:text-3xl font-black text-indigo-600">7+</p>
+    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+      {currentLang === 'ko' ? "비교 마트 수" : 
+       currentLang === 'de' ? "Märkte im Vergleich" : "Marts Compared"}
+    </p>
+  </div>
+
+  <div className="w-px h-10 bg-slate-100 my-auto"></div>
+
+  {/* 2. 레시피 생성 통계 */}
+  <div className="text-center">
+  {/* recentRecipes 배열의 길이를 숫자로 표시 */}
+  <p className="text-2xl md:text-3xl font-black text-indigo-600"> 20+
+    {/* {recentRecipes?.length > 0 ? `${recentRecipes.length}+` : "20+"}  */}
+  </p>
+  <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+    {currentLang === 'ko' ? "생성된 레시피" : 
+     currentLang === 'de' ? "Erstellte Rezepte" : "Recipes Created"}
+  </p>
+</div>
+
+  <div className="w-px h-10 bg-slate-100 my-auto"></div>
+
+  {/* 3. 이용료 통계 */}
+  <div className="text-center">
+    <p className="text-2xl md:text-3xl font-black text-indigo-600">
+      {currentLang === 'ko' ? "무료" : "FREE"}
+    </p>
+    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+      {currentLang === 'ko' ? "이용 금액" : 
+       currentLang === 'de' ? "Kostenloser Zugang" : "Open Access"}
+    </p>
+  </div>
+</div>
+
         <div className="max-w-3xl mx-auto mb-16 bg-gradient-to-r from-slate-50 via-white to-amber-50 rounded-[2.5rem] p-6 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 text-left">
             <span className="text-3xl">🌱</span>
@@ -863,12 +906,14 @@ Schema:
             target="_blank" 
             className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-xs font-black hover:bg-indigo-600 transition-all shadow-md shrink-0 active:scale-95"
           >
-            {/* ✅ 문구 변경: 서버비 보태기 / Support Server */}
             {currentLang === 'ko' ? "서버비 보태기" : t?.coffee_button}
           </a>
         </div>
       </div>
-
+      <div className="flex flex-col items-center mb-12 animate-bounce opacity-40">
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Explore</span>
+      <span className="text-lg">↓</span>
+    </div>
 
 
                         {/* 카드 섹션 */}
@@ -880,6 +925,7 @@ Schema:
           <p className="text-slate-500 leading-relaxed mb-8">{t?.price_subtitle}</p>
           <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
             {currentLang === 'ko' ? "최저가 확인" : "Check Prices"} <span className="ml-2">→</span>
+          
           </div>
         </button>
 
