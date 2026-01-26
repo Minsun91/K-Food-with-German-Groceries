@@ -19,14 +19,13 @@ const marts = [
   { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
   { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
   { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, 
-  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
+  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-21" }
 ];
 
 const targetItems = [
   { ko: "신라면", search: "Nongshim Shin Ramyun" },
   { ko: "불닭볶음면", search: "Samyang Buldak Original" },
-  { ko: "짜파게티", search: "Nongshim Chapagetti" }, // ✨ 추가!
-  { ko: "양반 들기름김", search: "Yangban Seasoned Seaweed" },
+  { ko: "짜파게티", search: "Nongshim Chapagetti" },
   { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
   { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
   { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }

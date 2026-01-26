@@ -68,7 +68,7 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             }, 800);
         }
     }, [prices, hasAutoScrolled]);
-
+    
     const filteredAndGroupedData = useMemo(() => {
         // 1. 검색어를 공백이나 + 기호 기준으로 쪼개서 배열로 만듭니다.
         // 예: "비비고+햇바삭" -> ["비비고", "햇바삭"]

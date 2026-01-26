@@ -27,3 +27,5 @@ const firebaseConfig = {
   export const projectId = "k-food-with-german-groceries";
 
 
+
+
