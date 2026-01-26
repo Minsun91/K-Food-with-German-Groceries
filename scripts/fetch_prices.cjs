@@ -13,23 +13,23 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 const marts = [
-  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  // { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
+  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
   { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, // ✨ Joybuy 추가!
-  // { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
+  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, 
+  { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-20" }
 ];
 
 const targetItems = [
   { ko: "신라면", search: "Nongshim Shin Ramyun" },
-  // { ko: "불닭볶음면", search: "Samyang Buldak Original" },
+  { ko: "불닭볶음면", search: "Samyang Buldak Original" },
   { ko: "짜파게티", search: "Nongshim Chapagetti" }, // ✨ 추가!
-  // { ko: "양반 들기름김", search: "Yangban Seasoned Seaweed" },
-  // { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
-  // { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
-  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
+  { ko: "양반 들기름김", search: "Yangban Seasoned Seaweed" },
+  { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
+  { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
+  { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
 ];
 
 async function updatePrices() {
@@ -50,7 +50,10 @@ async function updatePrices() {
   for (const itemObj of targetItems) {
     for (const mart of marts) {
       try {
-        const query = itemObj.search; 
+        // 💡 한국 마트는 한국어로, 현지 마트는 영어로 검색하게 분기!
+        const isKoreanMart = ["한독몰", "와이마트", "다와요", "코켓"].includes(mart.name);
+        const query = isKoreanMart ? itemObj.ko : itemObj.search; 
+        
         const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
         
         console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko}`);

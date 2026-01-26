@@ -8,7 +8,9 @@ const DELIVERY_INFO = [
     { name: "다와요", info: "60€↑ 무료" },
     { name: "Y-Mart", info: "70€↑ 무료 (최소 30€)" },
     { name: "한독몰", info: "70€↑ 무료 (픽업 5%↓)" },
-    { name: "Kocket", info: "49€↑ 무료" }
+    { name: "Kocket", info: "49€↑ 무료" },
+    { name: "K-shop", info: "70€↑ 무료 (냉동 제품 4.99€)"},
+    { name: "JoyBuy", info: "Same day delivery €3.99" },
 ];
 
 const MART_NAMES_EN = {
@@ -16,7 +18,9 @@ const MART_NAMES_EN = {
     "코켓": "Kocket",
     "와이마트": "Y-Mart",
     "아마존": "Amazon",
-    "다와요": "Dawayo"
+    "다와요": "Dawayo",
+    "K-shop":"K-shop",
+    "JoyBuy" :"JoyBuy"
 };
 
 const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
@@ -227,7 +231,6 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
             </div>
 
             {/* 🔍 2. 검색바 */}
-            {/* 🔍 2. 검색바 */}
             <div className="px-4 md:px-6 pt-4 pb-2">
                 <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
@@ -264,42 +267,52 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
 
             {/* 📦 3. 상품 리스트 */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-                {Object.keys(filteredAndGroupedData).length > 0 ? (
-                    Object.keys(filteredAndGroupedData)
-                        .sort((a, b) => {
-                            if (a === '기타') return 1;
-                            if (b === '기타') return -1;
+    {Object.keys(filteredAndGroupedData).length > 0 ? (
+        Object.keys(filteredAndGroupedData)
+            .sort((a, b) => {
+                // 1. '기타' 카테고리는 무조건 맨 아래로
+                if (a === '기타') return 1;
+                if (b === '기타') return -1;
 
-                            // 🌟 역순 정렬 (김포쌀을 아래로 보내고 최신 제품을 위로)
-                            return b.localeCompare(a);
-                        })
-                        .map((category) => {
-                            const items = filteredAndGroupedData[category];
-                            const firstItem = items[0];
+                const itemsA = filteredAndGroupedData[a];
+                const itemsB = filteredAndGroupedData[b];
 
-                            // 🌟 NEW 배지 조건 (예: 가장 첫 번째 아이템이 최근 24시간 이내 업데이트 되었는지)
-                            // 실제 데이터에 날짜가 없다면, 특정 카테고리(예: 선크림)를 강제로 NEW로 보이게 할 수도 있습니다.
-                            const isNew = category.includes("선크림") || category.includes("햇반");
+                // 2. 각 카테고리에서 가장 최근 업데이트된 시간을 가져옴
+                const timeA = new Date(Math.max(...itemsA.map(i => new Date(i.updatedAt || 0)))).getTime();
+                const timeB = new Date(Math.max(...itemsB.map(i => new Date(i.updatedAt || 0)))).getTime();
 
-                            const shareData = {
-                                name: category,
-                                minPrice: firstItem.minPrice,
-                                maxPrice: firstItem.maxPrice,
-                                bestStore: firstItem.bestStore || firstItem.mart
-                            };
+                // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
+                return timeB - timeA;
+            })
+            .map((category) => {
+                const items = filteredAndGroupedData[category];
+                const firstItem = items[0];
 
-                            return (
-                                <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
-                                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
-                                                # {category}
-                                                {isNew && (
-                                                    <span className="animate-bounce inline-block bg-rose-500 text-[8px] text-white px-1.5 py-0.5 rounded-full font-bold">
-                                                        NEW
-                                                    </span>
-                                                )}
-                                            </h3>
+                // 🌟 NEW 배지 조건 수정: 
+                // 강제 지정 대신, 실제로 업데이트된 지 48시간 이내인 제품에 NEW를 붙임
+                const latestUpdate = Math.max(...items.map(i => new Date(i.updatedAt || 0).getTime()));
+                const isNew = (Date.now() - latestUpdate) < (48 * 60 * 60 * 1000); // 48시간 기준
+
+                const shareData = {
+                    name: category,
+                    minPrice: firstItem.minPrice,
+                    maxPrice: firstItem.maxPrice,
+                    bestStore: firstItem.bestStore || firstItem.mart
+                };
+                           
+
+                return (
+                    <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
+                        <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
+                                    # {category}
+                                    {isNew && (
+                                        <span className="animate-pulse inline-block bg-rose-500 text-[9px] text-white px-2 py-0.5 rounded-full font-black shadow-sm">
+                                            NEW
+                                        </span>
+                                    )}
+                                </h3>
                                             <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
                                                 {items.length}개 결과
                                             </span>
