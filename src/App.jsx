@@ -441,7 +441,12 @@ const App = () => {
     };
 
     const handleGenerateRecipe = async () => {
-        // 1. 기본 체크
+    // 1. GA4 이벤트 전송 (추가!)
+        window.gtag?.('event', 'generate_recipe', {
+            'recipe_query': userInput, // 사용자가 입력한 검색어
+            'language': currentLang
+          });
+
         if (isLoading || !db || !userId) return;
         if (!userPrompt) {
             setSystemMessageHandler("메뉴를 선택하거나 입력해주세요.", "error");

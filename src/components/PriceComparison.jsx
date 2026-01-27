@@ -340,8 +340,16 @@ const PriceComparison = ({ currentLang, langConfig, onUpdateData }) => {
                                             const prevPrice = p.prevPrice ? parseFloat(p.prevPrice) : null;
 
                                             return (
-                                                <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer"
-                                                    className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 ? 'bg-amber-50/20' : 'bg-white'}`}>
+                                                <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer"onClick={() => {
+                                                    window.gtag?.('event', 'click_amazon_product', {
+                                                      'product_name': p.item,      // 예: "고추장", "참기름"
+                                                      'mart_name': p.mart,         // 예: "Amazon", "K-Shop"
+                                                      'price': currentPrice,       // 클릭 당시 가격
+                                                      'category': category         // 현재 보고 있는 카테고리
+                                                    });
+                                                  }}
+                                                  className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 ? 'bg-amber-50/20' : 'bg-white'}`}
+                                                >
                                                     <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
                                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">{p.mart}</span>
                                                         <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate leading-snug">{p.item}</span>
