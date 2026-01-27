@@ -919,7 +919,16 @@ Schema:
                         {/* 카드 섹션 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
         {/* 최저가 카드 */}
-        <button onClick={() => setActiveTab('price')} className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300">
+        <button 
+  onClick={() => {
+    setActiveTab('price');
+    gtag('event', 'select_content', {
+      content_type: 'tab',
+      item_id: 'price_tab'
+    });
+  }} 
+  className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
+>
           <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">🛒</div>
           <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.price_title}</h3>
           <p className="text-slate-500 leading-relaxed mb-8">{t?.price_subtitle}</p>
@@ -930,8 +939,17 @@ Schema:
         </button>
 
                             {/* 레시피 카드 */}
-        <button onClick={() => setActiveTab('recipe')} className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300">
-          <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👩‍🍳</div>
+                            
+                            <button 
+  onClick={() => {
+    setActiveTab('recipe');
+    gtag('event', 'select_content', {
+      content_type: 'tab',
+      item_id: 'recipe_tab'
+    });
+  }} 
+  className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
+>          <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👩‍🍳</div>
           <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.title}</h3>
           <p className="text-slate-500 leading-relaxed mb-8">{t?.subtitle}</p>
           <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
