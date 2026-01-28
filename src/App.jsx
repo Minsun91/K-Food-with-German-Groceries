@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, query, setDoc, orderBy, limit, getDocs, getDoc, doc, addDoc, serverTimestamp, onSnapshot, startAfter } from 'firebase/firestore';
-import { db, appId, userId, apiKey_gemini } from './firebase';
+import { db, appId, userId, apiKey_gemini } from './utils/firebase';
 import GermanMartTips from './components/GermanMartTips';
 import RecipeModal from './components/RecipeModal';
 import Footer from './components/Footer';
-import PriceComparison from './components/PriceComparison';
+import PriceComparison from './features/price/PriceComparison';
 import { GoogleGenAI } from "@google/genai";
+import { langConfig, limitMessages } from './constants/langConfig';
+import { BEST_MENU_K10 } from './constants/menuData';
+import Header from './components/Header';
+import RecipeGenerator from './features/recipe/RecipeGenerator';
+import RecentRecipes from './features/recipe/RecentRecipes';
+import { shareToKakao, shareToWhatsApp } from './utils/share';
+import BeautyGuide from './features/beauty/BeautyGuide';
 
 const genAI = new GoogleGenAI({
     apiKey: apiKey_gemini,
@@ -19,166 +26,7 @@ const RATE_LIMIT_DURATION_MS = 60 * 60 * 1000; // 1시간 (밀리초)
 const rateLimitCollectionPath = (appId) => `artifacts/${appId}/public/data/rateLimits`;
 const savedRecipesCollectionPath = (appId) => `artifacts/${appId}/public_recipes`;
 
-// Language Configuration
-const langConfig = {
-    ko: {
-        name: "한국어",
-        title: "한식레시피 aus 독일마트",
-        subtitle: "독일 슈퍼마켓에서 쉽게 구할 수 있는 재료로 한식 레시피를 만들어보세요.",
-        recent_title: "최근 생성된된 레시피",
-        prompt_label: "레시피 아이디어 (예: 두부 + 스페츠레):",
-        placeholder: "예시: 소시지와 양배추를 활용한 퓨전 김치볶음밥",
-        button_loading: "생성 중...",
-        button_ready: "레시피 생성하기 🍚",
-        desc_title: "레시피 설명",
-        ingredients_title: "재료",
-        steps_ko: "조리 순서",
-        steps_en: "Steps",
-        steps_de: "Kochschritte",
-        generating_message: "독일 마트 재료 기반 레시피를 생성 중입니다. 잠시만 기다려주세요...",
-        success_message: "새로운 독일 마트 한식 레시피가 성공적으로 생성되었습니다.",
-        save_button: "레시피 저장",
-        saved_button: "저장됨 ✅",
-        all_steps_title: "전체 언어 조리 순서 (All Language Steps)",
-        price_title: "한국 식품 품목별 최저가",
-        price_subtitle: "주요 품목의 실시간 최저가 정보를 확인하세요.",
-        last_update: "최근 업데이트",
-        coffee_title: "여러분의 장바구니 물가를 덜어드리는 Kfoodtracker입니다.",
-        coffee_desc: "보내주시는 따뜻한 커피 한 잔은 서버 유지비에 크나큰 힘이 됩니다!",
-        coffee_button: "커피 사주기",
-        mart_compare: "개 마트 비교",
-        no_price_data: "비교 가능한 데이터가 아직 없습니다.",
-        best_price: "최저가"
-    },
-    en: {
-        name: "English",
-        title: "K-Food Helper in Germany",
-        subtitle: "Create Korean recipes using ingredients easily found in German supermarkets.",
-        prompt_label: "Recipe Idea (e.g., Tofu + Spätzle):",
-        recent_title: "Recent Generated Recipes",
-        placeholder: "Example: Fusion Kimchi Fried Rice using Bratwurst and Sauerkraut",
-        button_loading: "Generating...",
-        button_ready: "Generate Recipe 🍚",
-        desc_title: "Recipe Description",
-        ingredients_title: "Ingredients",
-        steps_ko: "Cooking Steps ",
-        steps_en: "Steps ",
-        steps_de: "Kochschritte ",
-        generating_message: "Generating German supermarket-based recipe...",
-        success_message: "New German supermarket Korean recipe successfully generated.",
-        save_button: "Save Recipe",
-        saved_button: "Saved ✅",
-        all_steps_title: "All Language Steps (Kochschritte in allen Sprachen)",
-        price_title: "Lowest Prices by Item",
-        price_subtitle: "Check real-time lowest price information for key items.",
-        last_update: "Last Updated",
-        coffee_title: "Kfoodtracker, helping you save on your grocery bills.",
-        coffee_desc: "A warm cup of coffee is a great help for server maintenance costs!",
-        coffee_button: "Keep the Tracker Alive",
-        mart_compare: "marts compared",
-        no_price_data: "No comparison data available yet.",
-        best_price: "Best Price"
-    },
-    de: {
-        name: "Deutsch",
-        title: "Dein K-Food Helfer",
-        subtitle: "Erstellen Sie koreanische Rezepte mit Zutaten, die leicht in deutschen Supermärkten erhältlich sind.",
-        prompt_label: "Rezeptidee (z.B. Tofu + Spätzle):",
-        recent_title: "Kürzlich erstellte Rezepte",
-        placeholder: "Beispiel: Fusion Kimchi-Bratreis mit Wurst und Sauerkraut",
-        button_loading: "Wird generiert...",
-        button_ready: "Rezept generieren 🍚",
-        desc_title: "Rezeptbeschreibung",
-        ingredients_title: "Zutaten",
-        steps_ko: "Kochschritte",
-        steps_en: "Steps",
-        steps_de: "Kochschritte",
-        generating_message: "Generiere das Rezept basierend auf deutschen Zutaten...",
-        success_message: "Neues Koreanisches Rezept (Deutschland-Basis) erfolgreich generiert.",
-        save_button: "Rezept speichern",
-        saved_button: "Gespeichert ✅",
-        all_steps_title: "Kochschritte in allen Sprachen",
-        price_title: "Tiefstpreise nach Artikeln",
-        price_subtitle: "Prüfen Sie Echtzeit-Tiefstpreis-Informationen für wichtige Artikel.",
-        last_update: "Zuletzt aktualisiert",
-        coffee_title: "Kfoodtracker, die App, mit der Sie Ihre Lebensmittelkosten senken können",
-        coffee_desc: "Ein kleiner Kaffee hilft mir, die Serverkosten zu decken!",
-        coffee_button: "Unterstütze den Server-Host",
-        mart_compare: "Märkte im Vergleich",
-        no_price_data: "Noch keine Vergleichsdaten verfügbar.",
-        best_price: "Bester Preis"
-    },
-};
 
-// WhatsApp 공유 함수
-const shareToWhatsApp = (recipe) => {
-    if (!recipe?.id) {
-        alert(currentLang === 'de' ? "Speichere das Rezept zuerst!" : "Save the recipe first!");
-        return;
-    }
-    const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=de`;
-    const recipeName = recipe.name_de || recipe.name_en || recipe.name_ko;
-    const text = `${recipeName}\nProbier dieses Rezept aus! \n\n ${shareUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-};
-
-const shareToKakao = (recipe, currentLang) => {
-    const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
-
-    if (!recipe || !recipe.id) {
-        const alertMsg = {
-            ko: "먼저 '레시피 저장' 버튼을 눌러주세요!",
-            en: "Please save the recipe first!",
-            de: "Bitte speichere zuerst das Rezept!"
-        };
-        alert(alertMsg[currentLang] || alertMsg['ko']);
-        return;
-    }
-
-    if (window.Kakao) {
-        if (!window.Kakao.isInitialized()) {
-            window.Kakao.init(kakaoKey);
-        }
-
-        const shareUrl = `${window.location.origin}${window.location.pathname}?recipeId=${recipe.id}&lang=${currentLang}`;
-
-        const contentConfig = {
-            ko: {
-                title: recipe.name_ko || recipe.name,
-                description: '독일 마트 재료로 만든 한식 레시피!',
-                button: '레시피 보기'
-            },
-            en: {
-                title: recipe.name_en || recipe.name,
-                description: 'Korean recipes with German ingredients!',
-                button: 'View Recipe'
-            },
-            de: {
-                title: recipe.name_de || recipe.name,
-                description: 'Koreanische Rezepte mit deutschen Zutaten!',
-                button: 'Rezept ansehen'
-            }
-        };
-
-        const config = contentConfig[currentLang] || contentConfig['ko'];
-
-        window.Kakao.Share.sendDefault({
-            objectType: 'feed',
-            content: {
-                title: config.title,
-                description: config.description,
-                imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
-                link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
-            },
-            buttons: [
-                {
-                    title: config.button,
-                    link: { mobileWebUrl: shareUrl, webUrl: shareUrl }
-                }
-            ],
-        });
-    }
-};
 
 const withExponentialBackoff = async (fn, retries = 5) => {
     for (let i = 0; i < retries; i++) {
@@ -202,18 +50,7 @@ const processApiResponse = (result) => {
     }
     return { text };
 };
-const BEST_MENU_K10 = [
-    { id: 1, name_ko: "제육볶음", name_de: "Schweinefleischpfanne", name_en: "Spicy Pork Fry", icon: "🔥" },
-    { id: 2, name_ko: "된장찌개", name_de: "Sojabohnenpaste-Eintopf", name_en: "Soybean Paste Stew", icon: "🥘" },
-    { id: 3, name_ko: "김치찌개", name_de: "Kimchi-Eintopf", name_en: "Kimchi Stew", icon: "🍲" },
-    { id: 4, name_ko: "불고기", name_de: "Bulgogi", name_en: "Bulgogi", icon: "🥩" },
-    { id: 5, name_ko: "닭갈비", name_de: "Dakgalbi", name_en: "Spicy Chicken Stir-fry", icon: "🍗" },
-    { id: 6, name_ko: "떡볶이", name_de: "Tteokbokki", name_en: "Tteokbokki", icon: "🌶️" },
-    { id: 7, name_ko: "미역국", name_de: "Seetang-Suppe", name_en: "Seaweed Soup", icon: "🥣" },
-    { id: 8, name_ko: "비빔밥", name_de: "Bibimbap", name_en: "Bibimbap", icon: "🥗" },
-    { id: 9, name_ko: "파전", name_de: "Pajeon (Pfannkuchen)", name_en: "Scallion Pancake", icon: "🥞" },
-    { id: 10, name_ko: "보쌈", name_de: "Bossam", name_en: "Boiled Pork Wraps", icon: "🥓" }
-];
+
 
 const getMarketSearchLink = (market, itemName) => {
     const query = encodeURIComponent(itemName); // 재료명 인코딩
@@ -419,33 +256,13 @@ const App = () => {
         }
     };
 
-    const limitMessages = {
-        ko: {
-            title: "한도 초과",
-            limit: "오늘의 레시피 생성 한도를 모두 사용했어요 🍽️\n내일 다시 오시면 더 맛있는 레시피로 도와드릴게요!",
-            overloaded: "지금 셰프가 너무 바빠요 🧑‍🍳🔥\n잠시 후 다시 시도해 주세요!",
-            button: "확인했습니다"
-        },
-        en: {
-            title: "Limit Reached",
-            limit: "Daily recipe limit reached 🍽️\nTry again tomorrow for more delicious recipes!",
-            overloaded: "Chef is super busy right now 🧑‍🍳🔥\nPlease try again in a few moments!",
-            button: "Got it"
-        },
-        de: {
-            title: "Limit erreicht",
-            limit: "Tägliches Rezeptlimit erreicht 🍽️\nVersuchen Sie es morgen erneut für weitere leckere Rezepte!",
-            overloaded: "Der Chefkoch ist gerade sehr beschäftigt 🧑‍🍳🔥\nBitte versuchen Sie es in Kürze noch einmal!",
-            button: "Verstanden"
-        }
-    };
 
     const handleGenerateRecipe = async () => {
-    // 1. GA4 이벤트 전송 (추가!)
+        // 1. GA4 이벤트 전송 (추가!)
         window.gtag?.('event', 'generate_recipe', {
-            'recipe_query': userInput, // 사용자가 입력한 검색어
+            'recipe_query': userInput, // ⚠️ 여기서 userInput 대신 userPrompt를 사용해야 할 것 같습니다.
             'language': currentLang
-          });
+        });
 
         if (isLoading || !db || !userId) return;
         if (!userPrompt) {
@@ -800,170 +617,130 @@ Schema:
 
     return (
         <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans pb-20 selection:bg-indigo-100 selection:text-indigo-700">
-            <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
-                    <h1
-                        className="text-xl font-black text-indigo-900 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setActiveTab('home')}
-                    >
-                        K-Food <span className="text-indigo-500 font-light">Tracker</span>
-                    </h1>
+            <Header
+                currentLang={currentLang}
+                setCurrentLang={setCurrentLang}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+            />
 
-                    <nav className="flex items-center gap-2 md:gap-8"> {/* gap을 모바일에서 조금 줄임 */}
-  <button 
-    onClick={() => setActiveTab('price')}
-    className={`flex items-center gap-1 text-[13px] md:text-sm font-black whitespace-nowrap shrink-0 transition-all ${
-      activeTab === 'price' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'
-    }`}
-  >
-    <span className="text-base">🛒</span> 
-    <span className="leading-none">{currentLang === 'ko' ? '최저가' : (currentLang === 'de' ? 'Preise' : 'Prices')}</span>
-  </button>
-
-  <button 
-    onClick={() => setActiveTab('recipe')}
-    className={`flex items-center gap-1 text-[13px] md:text-sm font-black whitespace-nowrap shrink-0 transition-all ${
-      activeTab === 'recipe' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'
-    }`}
-  >
-    <span className="text-base">👩‍🍳</span>
-    <span className="leading-none">{currentLang === 'ko' ? '레시피' : (currentLang === 'de' ? 'Rezepte' : 'Recipes')}</span>
-  </button>
-</nav>
-
-                    <div className="flex bg-slate-100 p-1 rounded-xl scale-90 md:scale-100">
-                        {['ko', 'en', 'de'].map(lang => (
-                            <button
-                                key={lang}
-                                onClick={() => setCurrentLang(lang)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === lang ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                {lang.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </header>
-
-            <main className="max-w-6xl mx-auto px-4 py-8 overflow-hidden">
-
-                {/* --- 1. 랜딩 페이지 (Home) --- */}
+<main className="max-w-6xl mx-auto px-4 py-8 overflow-hidden">
                 {activeTab === 'home' && (
-    <div className="py-12 animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
-      <div className="text-center mb-12">
-        {/* ✅ 언어 지원: 독일 생활의 스마트한 선택 */}
-        <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight leading-tight">
-          {currentLang === 'ko' ? <>독일 생활의 <span className="text-indigo-600">스마트한</span> 선택</> : 
-           currentLang === 'de' ? <>Die <span className="text-indigo-600">smarte</span> Wahl in DE</> : 
-           <>The <span className="text-indigo-600">Smart</span> Choice in DE</>}
-        </h2>
-        <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-10">
-          {currentLang === 'ko' ? "주요 한인 마트 실시간 가격 비교부터 AI가 제안하는 맞춤형 K-레시피까지 한 곳에서 확인하세요." : t?.subtitle}
-        </p>
-        <div className="flex justify-center gap-6 md:gap-12 mb-10">
-  {/* 1. 마트 비교 통계 */}
-  <div className="text-center">
-    <p className="text-2xl md:text-3xl font-black text-indigo-600">7+</p>
-    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
-      {currentLang === 'ko' ? "비교 마트 수" : 
-       currentLang === 'de' ? "Märkte im Vergleich" : "Marts Compared"}
-    </p>
-  </div>
+                    <div className="py-12 animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
+                        <div className="text-center mb-12">
+                            {/* ✅ 언어 지원: 독일 생활의 스마트한 선택 */}
+                            <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight leading-tight">
+                                {currentLang === 'ko' ? <>독일 생활의 <span className="text-indigo-600">스마트한</span> 선택</> :
+                                    currentLang === 'de' ? <>Die <span className="text-indigo-600">smarte</span> Wahl in DE</> :
+                                        <>The <span className="text-indigo-600">Smart</span> Choice in DE</>}
+                            </h2>
+                            <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto mb-10">
+                                {currentLang === 'ko' ? "주요 한인 마트 실시간 가격 비교부터 AI가 제안하는 맞춤형 K-레시피까지 한 곳에서 확인하세요." : t?.subtitle}
+                            </p>
+                            <div className="flex justify-center gap-6 md:gap-12 mb-10">
+                                {/* 1. 마트 비교 통계 */}
+                                <div className="text-center">
+                                    <p className="text-2xl md:text-3xl font-black text-indigo-600">7+</p>
+                                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                                        {currentLang === 'ko' ? "비교 마트 수" :
+                                            currentLang === 'de' ? "Märkte im Vergleich" : "Marts Compared"}
+                                    </p>
+                                </div>
 
-  <div className="w-px h-10 bg-slate-100 my-auto"></div>
+                                <div className="w-px h-10 bg-slate-100 my-auto"></div>
 
-  {/* 2. 레시피 생성 통계 */}
-  <div className="text-center">
-  {/* recentRecipes 배열의 길이를 숫자로 표시 */}
-  <p className="text-2xl md:text-3xl font-black text-indigo-600"> 20+
-    {/* {recentRecipes?.length > 0 ? `${recentRecipes.length}+` : "20+"}  */}
-  </p>
-  <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
-    {currentLang === 'ko' ? "생성된 레시피" : 
-     currentLang === 'de' ? "Erstellte Rezepte" : "Recipes Created"}
-  </p>
-</div>
+                                {/* 2. 레시피 생성 통계 */}
+                                <div className="text-center">
+                                    {/* recentRecipes 배열의 길이를 숫자로 표시 */}
+                                    <p className="text-2xl md:text-3xl font-black text-indigo-600"> 20+
+                                        {/* {recentRecipes?.length > 0 ? `${recentRecipes.length}+` : "20+"}  */}
+                                    </p>
+                                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                                        {currentLang === 'ko' ? "생성된 레시피" :
+                                            currentLang === 'de' ? "Erstellte Rezepte" : "Recipes Created"}
+                                    </p>
+                                </div>
 
-  <div className="w-px h-10 bg-slate-100 my-auto"></div>
+                                <div className="w-px h-10 bg-slate-100 my-auto"></div>
 
-  {/* 3. 이용료 통계 */}
-  <div className="text-center">
-    <p className="text-2xl md:text-3xl font-black text-indigo-600">
-      {currentLang === 'ko' ? "무료" : "FREE"}
-    </p>
-    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
-      {currentLang === 'ko' ? "이용 금액" : 
-       currentLang === 'de' ? "Kostenloser Zugang" : "Open Access"}
-    </p>
-  </div>
-</div>
+                                {/* 3. 이용료 통계 */}
+                                <div className="text-center">
+                                    <p className="text-2xl md:text-3xl font-black text-indigo-600">
+                                        {currentLang === 'ko' ? "무료" : "FREE"}
+                                    </p>
+                                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                                        {currentLang === 'ko' ? "이용 금액" :
+                                            currentLang === 'de' ? "Kostenloser Zugang" : "Open Access"}
+                                    </p>
+                                </div>
+                            </div>
 
-        <div className="max-w-3xl mx-auto mb-16 bg-gradient-to-r from-slate-50 via-white to-amber-50 rounded-[2.5rem] p-6 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-left">
-            <span className="text-3xl">🌱</span>
-            <div>
-              <p className="text-sm font-black text-slate-800">{t?.coffee_title}</p>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">{t?.coffee_desc}</p>
-            </div>
-          </div>
-          <a 
-            href="https://ko-fi.com/kfoodtracker" 
-            target="_blank" 
-            className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-xs font-black hover:bg-indigo-600 transition-all shadow-md shrink-0 active:scale-95"
-          >
-            {currentLang === 'ko' ? "서버비 보태기" : t?.coffee_button}
-          </a>
-        </div>
-      </div>
-      <div className="flex flex-col items-center mb-12 animate-bounce opacity-40">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Explore</span>
-      <span className="text-lg">↓</span>
-    </div>
+                            <div className="max-w-3xl mx-auto mb-16 bg-gradient-to-r from-slate-50 via-white to-amber-50 rounded-[2.5rem] p-6 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-4 text-left">
+                                    <span className="text-3xl">🌱</span>
+                                    <div>
+                                        <p className="text-sm font-black text-slate-800">{t?.coffee_title}</p>
+                                        <p className="text-[11px] text-slate-500 mt-1 font-medium">{t?.coffee_desc}</p>
+                                    </div>
+                                </div>
+                                <a
+                                    href="https://ko-fi.com/kfoodtracker"
+                                    target="_blank"
+                                    className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-xs font-black hover:bg-indigo-600 transition-all shadow-md shrink-0 active:scale-95"
+                                >
+                                    {currentLang === 'ko' ? "서버비 보태기" : t?.coffee_button}
+                                </a>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center mb-12 animate-bounce opacity-40">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Explore</span>
+                            <span className="text-lg">↓</span>
+                        </div>
 
 
                         {/* 카드 섹션 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-        {/* 최저가 카드 */}
-        <button 
-  onClick={() => {
-    setActiveTab('price');
-    gtag('event', 'select_content', {
-      content_type: 'tab',
-      item_id: 'price_tab'
-    });
-  }} 
-  className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
->
-          <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">🛒</div>
-          <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.price_title}</h3>
-          <p className="text-slate-500 leading-relaxed mb-8">{t?.price_subtitle}</p>
-          <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-            {currentLang === 'ko' ? "최저가 확인" : "Check Prices"} <span className="ml-2">→</span>
-          
-          </div>
-        </button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                            {/* 최저가 카드 */}
+                            <button
+                                onClick={() => {
+                                    setActiveTab('price');
+                                    gtag('event', 'select_content', {
+                                        content_type: 'tab',
+                                        item_id: 'price_tab'
+                                    });
+                                }}
+                                className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
+                            >
+                                <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">🛒</div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.price_title}</h3>
+                                <p className="text-slate-500 leading-relaxed mb-8">{t?.price_subtitle}</p>
+                                <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    {currentLang === 'ko' ? "최저가 확인" : "Check Prices"} <span className="ml-2">→</span>
+
+                                </div>
+                            </button>
 
                             {/* 레시피 카드 */}
-                            
-                            <button 
-  onClick={() => {
-    setActiveTab('recipe');
-    gtag('event', 'select_content', {
-      content_type: 'tab',
-      item_id: 'recipe_tab'
-    });
-  }} 
-  className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
->          <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👩‍🍳</div>
-          <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.title}</h3>
-          <p className="text-slate-500 leading-relaxed mb-8">{t?.subtitle}</p>
-          <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-            {currentLang === 'ko' ? "레시피 만들기" : "Create Recipe"} <span className="ml-2">→</span>
-          </div>
-        </button>
-      </div>
-    </div>
-  )}
+
+                            <button
+                                onClick={() => {
+                                    setActiveTab('recipe');
+                                    gtag('event', 'select_content', {
+                                        content_type: 'tab',
+                                        item_id: 'recipe_tab'
+                                    });
+                                }}
+                                className="group text-left bg-white p-10 rounded-[2.5rem] border-2 border-slate-50 hover:border-indigo-500 shadow-xl transition-all duration-300"
+                            >          <div className="text-6xl mb-6 transform group-hover:scale-110 transition-transform">👩‍🍳</div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-3">{t?.title}</h3>
+                                <p className="text-slate-500 leading-relaxed mb-8">{t?.subtitle}</p>
+                                <div className="inline-flex items-center px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                    {currentLang === 'ko' ? "레시피 만들기" : "Create Recipe"} <span className="ml-2">→</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* --- 2. 최저가 비교 탭 --- */}
                 {activeTab === 'price' && (
@@ -990,76 +767,33 @@ Schema:
                 {/* --- 3. 레시피 생성 탭 --- */}
                 {activeTab === 'recipe' && (
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 max-w-3xl mx-auto space-y-12">
-                        <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl shadow-slate-200/40 transition-all">
-                            <div className="mb-8 text-center">
-                                <h2 className="text-3xl font-black text-slate-800 tracking-tight">🍳 {t?.title}</h2>
-                                <p className="text-sm text-slate-400 font-medium mt-2">{t?.subtitle}</p>
-                            </div>
+                        {/* 입력 및 생성부 */}
+                        <RecipeGenerator
+                            t={t}
+                            currentLang={currentLang}
+                            userPrompt={userPrompt}
+                            setUserPrompt={setUserPrompt}
+                            isLoading={isLoading}
+                            onGenerate={handleGenerateRecipe}
+                            getRateLimitMessage={getRateLimitMessage}
+                        />
 
-                            <div className="flex flex-wrap gap-2 mb-8 justify-center">
-                                {BEST_MENU_K10.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => {
-                                            const menuName = currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en);
-                                            setUserPrompt(menuName);
-                                        }}
-                                        className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all active:scale-95"
-                                    >
-                                        {item.icon} {currentLang === 'ko' ? item.name_ko : (currentLang === 'de' ? item.name_de : item.name_en)}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <textarea
-                                className="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-3xl resize-none min-h-[160px] text-base transition-all outline-none"
-                                placeholder={t?.placeholder}
-                                value={userPrompt}
-                                onChange={(e) => setUserPrompt(e.target.value)}
-                            />
-
-                            <button
-                                onClick={handleGenerateRecipe}
-                                disabled={isLoading}
-                                className="w-full mt-6 bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-lg hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all disabled:opacity-50 active:scale-[0.99]"
-                            >
-                                {isLoading ? t?.button_loading : t?.button_ready}
-                            </button>
-                            <div className="mt-4">{getRateLimitMessage && getRateLimitMessage()}</div>
-                        </section>
-
-                        {/* 최근 레시피 목록 */}
-                        <section>
-                            <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                <span className="p-2 bg-indigo-50 rounded-lg text-indigo-600 text-sm">✨</span>
-                                {t?.recent_title}
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {recentRecipes.map((r) => (
-                                    <div key={r.id} onClick={() => setSelectedRecipe(r)} className="group p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:border-indigo-500 transition-all cursor-pointer">
-                                        <h3 className="font-bold text-slate-700 group-hover:text-indigo-600 truncate">{r[`name_${currentLang}`] || r.name_ko || r.name}</h3>
-                                        <div className="flex justify-between items-center mt-4">
-                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">VIEW RECIPE</span>
-                                            <span className="text-indigo-500 group-hover:translate-x-1 transition-transform">→</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            {hasMore && (
-          <div className="flex justify-center mt-12">
-            <button
-              onClick={() => fetchRecipes(false)}
-              disabled={isMoreLoading}
-              className="px-10 py-4 rounded-2xl font-black text-sm bg-white text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {isMoreLoading ? "불러오는 중..." : (currentLang === 'ko' ? "레시피 더 보기 +" : "Show More +")}
-            </button>
-          </div>
-        )}
-      </section>
-    </div>
-  )}
-</main>
+                        {/* 하단 목록부 */}
+                        <RecentRecipes
+                            t={t}
+                            currentLang={currentLang}
+                            recentRecipes={recentRecipes}
+                            setSelectedRecipe={setSelectedRecipe}
+                            hasMore={hasMore}
+                            fetchRecipes={fetchRecipes}
+                            isMoreLoading={isMoreLoading}
+                        />
+                    </div>
+                )}
+                {activeTab === 'beauty' && (
+        <BeautyGuide t={t} currentLang={currentLang} />
+    )}
+            </main>
 
             <Footer currentLang={currentLang} onOpenGuide={() => setIsGuideOpen(true)} />
 
