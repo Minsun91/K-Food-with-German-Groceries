@@ -72,22 +72,63 @@ const RecipeView = ({ currentLang = 'ko', langConfig: propsLangConfig, rateLimit
 
     useEffect(() => { fetchRecipes(true); }, [db]);
 
-    const handleGenerateRecipe = async () => {
-        if (isLoading || !userPrompt) return;
-        setIsLoading(true);
-        try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const prompt = `Create a Korean recipe for "${userPrompt}" in language ${currentLang}. Output valid JSON ONLY with keys: name_${currentLang}, ingredients_${currentLang}, steps_${currentLang}.`;
-            const result = await model.generateContent(prompt);
-            const rawData = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
-            setSelectedRecipe(rawData);
-            
-            const newCount = (rateLimit?.count || 0) + 1;
-            const newReset = (rateLimit?.count === 0) ? Date.now() + RATE_LIMIT_DURATION_MS : (rateLimit?.resetTime || Date.now());
-            await setDoc(doc(db, `rateLimit_${appId}`, userId), { count: newCount, resetTime: newReset, lastCall: serverTimestamp() }, { merge: true });
-            setRateLimit({ count: newCount, resetTime: newReset });
-        } catch (e) { console.error(e); } finally { setIsLoading(false); }
-    };
+const handleGenerateRecipe = async () => {
+  if (isLoading || !userPrompt) return;
+
+  setIsLoading(true);
+
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "models/gemini-2.5-flash-preview-09-2025"
+    });
+
+    const prompt = `
+Create a Korean recipe for "${userPrompt}".
+Language: ${currentLang}
+
+Return ONLY valid JSON.
+No markdown.
+No explanations.
+
+Required keys:
+- name_${currentLang}
+- ingredients_${currentLang}
+- steps_${currentLang}
+`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const cleaned = text.replace(/```json|```/g, "").trim();
+    const recipe = JSON.parse(cleaned);
+
+    setSelectedRecipe(recipe);
+
+    // ===== rate limit 저장 =====
+    const newCount = (rateLimit?.count || 0) + 1;
+    const newReset =
+      rateLimit?.count === 0
+        ? Date.now() + RATE_LIMIT_DURATION_MS
+        : rateLimit?.resetTime || Date.now();
+
+    await setDoc(
+      doc(db, `rateLimit_${appId}`, userId),
+      {
+        count: newCount,
+        resetTime: newReset,
+        lastCall: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    setRateLimit({ count: newCount, resetTime: newReset });
+
+  } catch (error) {
+    console.error("Gemini error:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
 
     const handleSaveRecipe = async () => {
