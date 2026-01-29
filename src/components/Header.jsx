@@ -22,17 +22,56 @@ const Header = ({ currentLang, setCurrentLang }) => {
     </h1>
 </Link>
 
-                <nav className="hidden md:flex items-center gap-8">
-            <Link to="/price" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
-                🛒 <span className={location.pathname === '/price' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.price}</span>
-            </Link>
-            <Link to="/recipe" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
-                👩‍🍳 <span className={location.pathname === '/recipe' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.recipe}</span>
-            </Link>
-            <Link to="/community" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
-                🤝 <span className={location.pathname === '/community' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.community}</span>
-            </Link>
-        </nav>
+              <nav className="flex md:flex items-center gap-6 md:gap-8">
+  <Link
+    to="/price"
+    className="flex items-center gap-1.5 text-lg md:text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+  >
+    🛒
+    <span
+      className={`hidden md:inline ${
+        location.pathname === '/price'
+          ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5'
+          : ''
+      }`}
+    >
+      {t.price}
+    </span>
+  </Link>
+
+  <Link
+    to="/recipe"
+    className="flex items-center gap-1.5 text-lg md:text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+  >
+    👩‍🍳
+    <span
+      className={`hidden md:inline ${
+        location.pathname === '/recipe'
+          ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5'
+          : ''
+      }`}
+    >
+      {t.recipe}
+    </span>
+  </Link>
+
+  <Link
+    to="/community"
+    className="flex items-center gap-1.5 text-lg md:text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+  >
+    🤝
+    <span
+      className={`hidden md:inline ${
+        location.pathname === '/community'
+          ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5'
+          : ''
+      }`}
+    >
+      {t.community}
+    </span>
+  </Link>
+</nav>
+
 
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                     {['ko', 'en', 'de'].map(lang => (

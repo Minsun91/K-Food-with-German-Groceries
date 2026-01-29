@@ -131,24 +131,36 @@ Required keys:
 };
 
 
-    const handleSaveRecipe = async () => {
-    // 1. 이미 저장된 레시피라면 바로 리턴
-    if (!selectedRecipe) return;
- window.gtag?.('event', 'recipe_save', { 'recipe_name': generatedRecipe.name_ko || 'recipe' });
-        setIsRecipeSaved(true);
-        showMsg("저장되었습니다!");
-    try {
-        // 2. 파이어베이스 저장 로직 (예시)
-        const recipeRef = doc(db, "recipes", selectedRecipe.id || Date.now().toString());
-        await setDoc(recipeRef, {
-            ...selectedRecipe,
-            updatedAt: new Date()
-        });
-        console.log("저장 성공!");
-    } catch (e) {
-        console.error("저장 실패", e);
-        throw e; // 모달이 에러를 알 수 있게 던져줌
-    }
+ const handleSaveRecipe = async () => {
+  if (!selectedRecipe || !db) return;
+
+  try {
+    const recipeId = crypto.randomUUID();
+
+    const recipeRef = doc(
+      db,
+      "artifacts",
+      appId,
+      "public_recipes",
+      recipeId
+    );
+
+    await setDoc(recipeRef, {
+      ...selectedRecipe,
+      id: recipeId,
+      createdAt: serverTimestamp(),
+      lang: currentLang,
+    });
+
+    window.gtag?.('event', 'recipe_save', {
+      recipe_name: selectedRecipe?.[`name_${currentLang}`] || 'recipe'
+    });
+
+    console.log("✅ 레시피 저장 성공");
+
+  } catch (e) {
+    console.error("❌ 레시피 저장 실패:", e);
+  }
 };
 
     return (
