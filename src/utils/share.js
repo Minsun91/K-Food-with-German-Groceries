@@ -1,56 +1,26 @@
-// export const shareToKakao = (recipe, lang) => {
-//     if (!window.Kakao) return;
-//     const name = recipe[`name_${lang}`] || recipe.name;
-    
-//     window.Kakao.Share.sendDefault({
-//       objectType: 'feed',
-//       content: {
-//         title: name,
-//         description: '독일 마트 재료로 만드는 K-Food 레시피!',
-//         imageUrl: 'https://your-app-url.com/logo.png',
-//         link: {
-//           mobileWebUrl: window.location.href,
-//           webUrl: window.location.href,
-//         },
-//       },
-//     });
-//   };
-  
-//   export const shareToWhatsApp = (recipe, lang) => {
-//     const name = recipe[`name_${lang}`] || recipe.name;
-//     const text = `${name} 레시피를 확인해보세요! ${window.location.href}`;
-//     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
-//   };
-
   // WhatsApp 공유 함수
-export const shareToWhatsApp = (recipe, currentLang = 'de') => {
-    // 1. 레시피 데이터 확인
+  export const shareToWhatsApp = (recipe, currentLang = 'ko') => {
+    // 1. 레시피 ID가 없는 경우 (저장되지 않은 경우)
     if (!recipe?.id) {
-        const alertMsg = {
-            de: "Bitte speichere das Rezept zuerst!",
-            ko: "레시피를 먼저 저장해주세요!",
-            en: "Please save the recipe first!"
-        };
-        alert(alertMsg[currentLang] || alertMsg.de);
+        const msg = currentLang === 'de' 
+            ? "Bitte speichere das Rezept zuerst!" 
+            : (currentLang === 'ko' ? "레시피를 먼저 저장해주세요!" : "Please save the recipe first!");
+        alert(msg);
         return;
     }
 
-    // 2. 현재 언어에 맞는 이름 가져오기 (없으면 기본 name)
-    const recipeName = recipe[`name_${currentLang}`] || recipe.name_de || recipe.name_ko || recipe.name || "K-Food Recipe";
-    
-    // 3. 언어별 초대 문구 설정
-    const inviteMsg = {
-        de: "Probier dieses Rezept aus!",
-        ko: "이 레시피 한번 해보세요!",
-        en: "Check out this Korean recipe!"
-    };
-
-    // 4. URL 구성 (lang 파라미터 강제 지정)
+    // 2. 공유 정보 구성
+    const recipeName = recipe[`name_${currentLang}`] || recipe.name_ko || recipe.name;
     const shareUrl = `${window.location.origin}/recipe?recipeId=${recipe.id}&lang=${currentLang}`;
     
-    // 5. 최종 메시지 조립
-    const text = `*${recipeName}*\n${inviteMsg[currentLang] || inviteMsg.de}\n\n👉 ${shareUrl}`;
+    // 3. 메시지 텍스트 (undefined 방지 및 깔끔한 포맷)
+    const inviteText = currentLang === 'de' 
+        ? "Probier dieses Rezept aus!" 
+        : (currentLang === 'ko' ? "이 레시피 한번 해보세요!" : "Check out this recipe!");
 
+    const text = `*${recipeName}*\n${inviteText}\n\n👉 ${shareUrl}`;
+
+    // 4. WhatsApp 호출
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 };
 
@@ -111,4 +81,3 @@ export const shareToKakao = (recipe, currentLang) => {
           });
       }
   };
-  

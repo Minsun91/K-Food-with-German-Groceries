@@ -62,20 +62,31 @@ const Community = ({ currentLang }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!user) {
-            alert("로그인이 필요합니다!");
-            return;
-        }
+        if (!user) return alert("로그인이 필요합니다!");
         if (!newPost.trim()) return;
-
-        await addDoc(collection(db, "posts"), {
-            content: newPost,
-            authorName: user.displayName,
-            authorPhoto: user.photoURL,
-            authorId: user.uid,
-            createdAt: serverTimestamp(),
-        });
-        setNewPost("");
+    
+        try {
+            await addDoc(collection(db, "posts"), {
+                content: newPost,
+                authorName: user.displayName,
+                authorId: user.uid,
+                createdAt: serverTimestamp(),
+            });
+    
+            // 📊 구글 애널리틱스 이벤트 전송
+            if (window.gtag) {
+                window.gtag('event', 'post_create', {
+                    'event_category': 'community',
+                    'user_name': user.displayName,
+                    'content_length': newPost.length
+                });
+            }
+    
+            setNewPost("");
+            alert("글이 성공적으로 등록되었습니다! 🎉");
+        } catch (error) {
+            console.error("Error adding document: ", error);
+        }
     };
     const t = translations[currentLang] || translations['ko'];
 
