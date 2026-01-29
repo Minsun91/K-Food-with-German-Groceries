@@ -14,6 +14,9 @@ const RecipeModal = ({
 
     if (!recipe) return null;
 
+    // 💡 핵심: 레시피에 이미 ID가 있다면 '저장된 레시피'로 판단합니다.
+    const isExistingRecipe = !!recipe.id;
+
     const onSaveClick = async () => {
         setIsSaving(true);
         try {
@@ -62,7 +65,7 @@ const RecipeModal = ({
                     </h2>
 
                     <div className="space-y-10">
-                        {/* 🛒 재료 섹션 */}
+                        {/* 🛒 재료 및 마트 검색 */}
                         <div>
                             <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
                                 🛒 {currentLang === 'ko' ? '재료 및 마트 검색' : (currentLang === 'de' ? 'Zutaten & Suche' : 'Ingredients & Search')}
@@ -103,45 +106,52 @@ const RecipeModal = ({
                     </div>
 
                     {/* 하단 버튼 영역 */}
-                    <div className="mt-12 flex flex-col gap-3">
-                        {!isSaved ? (
-                            <button 
-                                onClick={onSaveClick}
-                                disabled={isSaving}
-                                className={`w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
-                                    ${isSaving ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
-                            >
-                                {isSaving ? "⏳ 저장 중..." : "🚀 레시피 저장하기"}
-                            </button>
-                        ) : (
-                            <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
-                                <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200 text-sm">
-                                    ✅ 레시피가 저장되었습니다! 이제 공유해보세요.
-                                </div>
-                                <div className="flex gap-3">
-                                    <button 
-                                        onClick={() => shareToWhatsApp?.(recipe)} 
-                                        className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
-                                    >
-                                        <span className="text-xl">💬</span> WhatsApp
-                                    </button>
-                                    <button 
-                                        onClick={() => shareToKakao?.(recipe)} 
-                                        className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
-                                    >
-                                        <span className="text-xl">💛</span> Kakao
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+<div className="mt-12 flex flex-col gap-3">
+    
+    {/* 1. 저장 버튼 영역: 아직 저장 안 된 '새 레시피'일 때만 노출 */}
+    {!isExistingRecipe && (
+        <>
+            {!isSaved ? (
+                <button 
+                    onClick={onSaveClick}
+                    disabled={isSaving}
+                    className={`w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
+                        ${isSaving ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+                >
+                    {isSaving ? (currentLang === 'ko' ? "⏳ 저장 중..." : "⏳ Saving...") : (currentLang === 'ko' ? "🚀 레시피 저장하기" : "🚀 Save Recipe")}
+                </button>
+            ) : (
+                <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200 text-sm animate-in fade-in duration-500">
+                    {currentLang === 'ko' ? "✅ 레시피가 저장되었습니다!" : "✅ Recipe saved!"}
+                </div>
+            )}
+        </>
+    )}
 
-                        <button 
-                            onClick={onClose} 
-                            className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95 transition-colors"
-                        >
-                            {t?.close || "Close"}
-                        </button>
-                    </div>
+    {/* 2. 공유 버튼 그룹: 저장 여부와 상관없이 '항상' 노출 */}
+    <div className="flex gap-3">
+        <button 
+            onClick={() => shareToWhatsApp(recipe, currentLang)}
+            className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md hover:opacity-90"
+        >
+            <span className="text-xl">💬</span> WhatsApp
+        </button>
+        <button 
+            onClick={() => shareToKakao?.(recipe)} 
+            className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md hover:opacity-90"
+        >
+            <span className="text-xl">💛</span> Kakao
+        </button>
+    </div>
+
+    {/* 3. 닫기 버튼 */}
+    <button 
+        onClick={onClose} 
+        className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95 transition-colors"
+    >
+        {t?.close || (currentLang === 'ko' ? "닫기" : "Close")}
+    </button>
+</div>
                 </div>
             </div>
         </div>
