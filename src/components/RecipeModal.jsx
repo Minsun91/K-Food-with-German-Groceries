@@ -102,46 +102,49 @@ const RecipeModal = ({
                         </div>
                     </div>
 
-                    {/* 하단 버튼 영역 */}
-                    <div className="mt-12 flex flex-col gap-3">
-                        {!isSaved ? (
-                            <button 
-                                onClick={onSaveClick}
-                                disabled={isSaving}
-                                className={`w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
-                                    ${isSaving ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
-                            >
-                                {isSaving ? "⏳ 저장 중..." : "🚀 레시피 저장하기"}
-                            </button>
-                        ) : (
-                            <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
-                                <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200 text-sm">
-                                    ✅ 레시피가 저장되었습니다! 이제 공유해보세요.
-                                </div>
-                                <div className="flex gap-3">
-                                    <button 
-                                        onClick={() => shareToWhatsApp?.(recipe)} 
-                                        className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
-                                    >
-                                        <span className="text-xl">💬</span> WhatsApp
-                                    </button>
-                                    <button 
-                                        onClick={() => shareToKakao?.(recipe)} 
-                                        className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
-                                    >
-                                        <span className="text-xl">💛</span> Kakao
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                   {/* 하단 버튼 영역 */}
+<div className="mt-12 flex flex-col gap-3">
+    {/* 1. 저장 버튼 (저장 전/후 상태 분기) */}
+    {!isSaved ? (
+        <button 
+            onClick={onSaveClick}
+            disabled={isSaving}
+            className={`w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all
+                ${isSaving ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+        >
+            {isSaving ? (currentLang === 'ko' ? "⏳ 저장 중..." : "⏳ Saving...") : (currentLang === 'ko' ? "🚀 레시피 저장하기" : "🚀 Save Recipe")}
+        </button>
+    ) : (
+        <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold text-center border-2 border-dashed border-emerald-200 text-sm animate-in fade-in duration-500">
+            {currentLang === 'ko' ? "✅ 레시피가 저장되었습니다!" : "✅ Recipe saved!"}
+        </div>
+    )}
 
-                        <button 
-                            onClick={onClose} 
-                            className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95 transition-colors"
-                        >
-                            {t?.close || "Close"}
-                        </button>
-                    </div>
+    {/* 2. 공유 버튼 그룹 (항상 노출되도록 밖으로 뺌) */}
+    <div className="flex gap-3">
+        
+        <button 
+    onClick={() => shareToWhatsApp(recipe, currentLang)} // 여기서 currentLang을 넘겨주는게 핵심!
+            className="flex-1 py-4 bg-[#25D366] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md hover:opacity-90"
+>
+    <span className="text-xl">💬</span> WhatsApp
+</button>
+        <button 
+            onClick={() => shareToKakao?.(recipe)} 
+            className="flex-1 py-4 bg-[#FEE500] text-[#191919] rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md hover:opacity-90"
+        >
+            <span className="text-xl">💛</span> Kakao
+        </button>
+    </div>
+
+    {/* 3. 닫기 버튼 */}
+    <button 
+        onClick={onClose} 
+        className="w-full py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 hover:bg-slate-200 active:scale-95 transition-colors"
+    >
+        {t?.close || (currentLang === 'ko' ? "닫기" : "Close")}
+    </button>
+</div>
                 </div>
             </div>
         </div>

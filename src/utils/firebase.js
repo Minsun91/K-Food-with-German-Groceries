@@ -16,7 +16,7 @@ const firebaseConfig = {
   // 2. Gemini API Key (이것도 마찬가지로 안전하게!)
   export const apiKey_gemini = import.meta.env.VITE_GEMINI_API_KEY;
   
-  // 3. Firebase 초기화
+  // 3. Firebase 초기화a
   const app = initializeApp(firebaseConfig);
   export const db = getFirestore(app);
   export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
@@ -25,3 +25,4 @@ const firebaseConfig = {
   export const appId = "recipe-blog-vsc-001";
   export const userId = "user_" + Math.random().toString(36).substring(2, 9);
   export const projectId = "k-food-with-german-groceries";
+  

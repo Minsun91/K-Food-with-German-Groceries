@@ -1,40 +1,38 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom'; // 👈 useLocation이 꼭 있어야 합니다!
 
-const Header = ({ currentLang, setCurrentLang, activeTab, setActiveTab }) => {
+const Header = ({ currentLang, setCurrentLang }) => {
+    const location = useLocation();
+
+    // 언어별 메뉴 텍스트 설정
+    const menuText = {
+        ko: { price: "최저가", recipe: "레시피", community: "커뮤니티" },
+        en: { price: "Prices", recipe: "Recipes", community: "Community" },
+        de: { price: "Preise", recipe: "Rezepte", community: "Community" }
+    };
+
+    const t = menuText[currentLang] || menuText['ko'];
+    
     return (
         <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
             <div className="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
-                <h1
-                    className="text-xl font-black text-indigo-900 cursor-pointer"
-                    onClick={() => setActiveTab('home')}
-                >
-                    K-Food <span className="text-indigo-500 font-light">Tracker</span>
-                </h1>
+               <Link to="/">
+    <h1 className="text-xl font-black text-indigo-900 cursor-pointer">
+        K-Food <span className="text-indigo-500 font-light">Tracker</span>
+    </h1>
+</Link>
 
-                <nav className="flex items-center gap-2 md:gap-8">
-                    <button
-                        onClick={() => setActiveTab('price')}
-                        className={`flex items-center gap-1 text-sm font-black ${activeTab === 'price' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}
-                    >
-                        🛒 {currentLang === 'ko' ? '최저가' : 'Prices'}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('recipe')}
-                        className={`flex items-center gap-1 text-sm font-black ${activeTab === 'recipe' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}
-                    >
-                        👩‍🍳 {currentLang === 'ko' ? '레시피' : 'Recipes'}
-                    </button>
-                    <button 
-    onClick={() => setActiveTab('community')}
-    className={`flex items-center gap-1 text-[13px] md:text-sm font-black whitespace-nowrap shrink-0 transition-all ${
-        activeTab === 'community' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'
-    }`}
->
-    <span className="text-base">🤝</span>
-    <span className="leading-none">{currentLang === 'ko' ? '커뮤니티' : 'Community'}</span>
-</button>
-
-                </nav>
+                <nav className="hidden md:flex items-center gap-8">
+            <Link to="/price" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+                🛒 <span className={location.pathname === '/price' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.price}</span>
+            </Link>
+            <Link to="/recipe" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+                👩‍🍳 <span className={location.pathname === '/recipe' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.recipe}</span>
+            </Link>
+            <Link to="/community" className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+                🤝 <span className={location.pathname === '/community' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-0.5' : ''}>{t.community}</span>
+            </Link>
+        </nav>
 
                 <div className="flex bg-slate-100 p-1 rounded-xl">
                     {['ko', 'en', 'de'].map(lang => (

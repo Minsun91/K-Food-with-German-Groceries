@@ -24,7 +24,7 @@ export const langConfig = {
         last_update: "최근 업데이트",
         coffee_title: "여러분의 장바구니 물가를 덜어드리는 Kfoodtracker입니다.",
         coffee_desc: "보내주시는 따뜻한 커피 한 잔은 서버 유지비에 크나큰 힘이 됩니다!",
-        coffee_button: "커피 사주기",
+        coffee_button: "서버비 보태기",
         mart_compare: "개 마트 비교",
         no_price_data: "비교 가능한 데이터가 아직 없습니다.",
         best_price: "최저가"

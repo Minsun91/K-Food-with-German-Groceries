@@ -10,6 +10,38 @@ const Community = ({ currentLang }) => {
     const [user, setUser] = useState(null); // 로그인 사용자 상태
     const [loading, setLoading] = useState(true);
 
+    const translations = {
+        ko: {
+            welcome: "님 환영해요!",
+            logout: "로그아웃",
+            loginMsg: "독일 생활 이야기를 나눠보세요 🇩🇪",
+            googleLogin: "Google로 로그인",
+            placeholder: "오늘 마트 꿀템은 무엇인가요?",
+            loginFirst: "로그인 후 글을 작성할 수 있습니다.",
+            postBtn: "올리기",
+            alertLogin: "로그인이 필요합니다!"
+        },
+        en: {
+            welcome: "Welcome, ",
+            logout: "Logout",
+            loginMsg: "Share your life in Germany 🇩🇪",
+            googleLogin: "Sign in with Google",
+            placeholder: "Any good finds at the mart today?",
+            loginFirst: "Please login to write a post.",
+            postBtn: "Post",
+            alertLogin: "Login required!"
+        },
+        de: {
+            welcome: "Willkommen, ",
+            logout: "Abmelden",
+            loginMsg: "Teile dein Leben in Deutschland 🇩🇪",
+            googleLogin: "Mit Google anmelden",
+            placeholder: "Was hast du heute im Supermarkt gefunden?",
+            loginFirst: "Bitte logge dich ein, um zu schreiben.",
+            postBtn: "Posten",
+            alertLogin: "Anmeldung erforderlich!"
+        }
+    };
     // 1. 로그인 상태 감시
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -45,53 +77,56 @@ const Community = ({ currentLang }) => {
         });
         setNewPost("");
     };
+    const t = translations[currentLang] || translations['ko'];
 
     return (
-        <div className="max-w-2xl mx-auto p-4 space-y-8 animate-in fade-in duration-700">
-            {/* 상단 프로필/로그인 영역 */}
-            <div className="flex justify-between items-center bg-slate-50 p-4 rounded-3xl border border-slate-100">
+<div className="max-w-3xl mx-auto pt-10 pb-24 px-6 space-y-12 animate-in fade-in duration-700 flex flex-col">
+                {/* 프로필 영역 */}
+<div className="w-full flex justify-between items-center bg-slate-50/50 p-5 rounded-[2rem] border border-slate-100/50 backdrop-blur-sm">
                 {user ? (
                     <div className="flex items-center gap-3">
-                        <img src={user.photoURL} alt="profile" className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
+                        <img src={user.photoURL} alt="profile" className="w-10 h-10 rounded-full border-2 border-white" />
                         <div>
-                            <p className="text-xs font-black text-slate-800">{user.displayName}님 환영해요!</p>
-                            <button onClick={logout} className="text-[10px] text-rose-500 font-bold underline">Abmelden (로그아웃)</button>
+                            <p className="text-xs font-black text-slate-800">
+                                {currentLang === 'ko' ? `${user.displayName}${t.welcome}` : `${t.welcome}${user.displayName}`}
+                            </p>
+                            <button onClick={logout} className="text-[10px] text-rose-500 font-bold underline">{t.logout}</button>
                         </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-between w-full">
-                        <p className="text-sm font-bold text-slate-500">독일 생활 이야기를 나눠보세요 🇩🇪</p>
-                        <button 
-                            onClick={loginWithGoogle}
-                            className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
-                        >
+                        <p className="text-sm font-bold text-slate-500">{t.loginMsg}</p>
+                        <button onClick={loginWithGoogle} className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2">
                             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4" alt="G" />
-                            Google로 로그인
+                            {t.googleLogin}
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* 글쓰기 폼 (로그인 시에만 노출하거나 활성화) */}
-            <form onSubmit={handleSubmit} className="relative group">
-                <textarea 
-                    value={newPost}
-                    onChange={(e) => setNewPost(e.target.value)}
-                    disabled={!user}
-                    placeholder={user ? "오늘 마트 꿀템은 무엇인가요?" : "로그인 후 글을 작성할 수 있습니다."}
-                    className={`w-full p-6 bg-white border-2 ${user ? 'border-slate-100 focus:border-indigo-500' : 'border-slate-50 bg-slate-50/50'} rounded-[2rem] min-h-[140px] shadow-xl shadow-slate-200/40 transition-all outline-none text-sm`}
-                />
-                {user && (
-                    <button className="absolute bottom-4 right-4 bg-indigo-600 text-white px-6 py-2 rounded-full font-black text-xs hover:bg-indigo-700 transition-all shadow-lg">
-                        Posten
-                    </button>
-                )}
-            </form>
+            {/* 글쓰기 폼 - 디자인 복구 버전 */}
+<form onSubmit={handleSubmit} className="w-full relative bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/20">
+    <textarea 
+        value={newPost}
+        onChange={(e) => setNewPost(e.target.value)}
+        disabled={!user}
+        placeholder={user ? "오늘 마트 꿀템은 무엇인가요? (Was hast du heute gefunden?)" : "로그인 후 글을 작성할 수 있습니다."}
+        className="w-full p-8 bg-transparent min-h-[160px] outline-none text-slate-700 font-medium placeholder:text-slate-300 resize-none text-base"
+    />
+    {user && (
+        <div className="absolute bottom-4 right-6 flex items-center gap-3">
+            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Share story</span>
+            <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                POSTEN
+            </button>
+        </div>
+    )}
+</form>
 
-            {/* 게시글 목록 */}
-            <div className="space-y-4">
+            {/* 게시글 목록 (날짜 포맷도 언어에 맞게) */}
+<div className="w-full space-y-6">
                 {posts.map(post => (
-                    <div key={post.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div key={post.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                         <p className="text-slate-700 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{post.content}</p>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -99,7 +134,7 @@ const Community = ({ currentLang }) => {
                                 <span className="text-[11px] font-bold text-slate-500">{post.authorName}</span>
                             </div>
                             <span className="text-[10px] text-slate-300 font-medium">
-                                {post.createdAt?.toDate().toLocaleDateString()}
+                                {post.createdAt?.toDate().toLocaleDateString(currentLang === 'ko' ? 'ko-KR' : (currentLang === 'de' ? 'de-DE' : 'en-US'))}
                             </span>
                         </div>
                     </div>
