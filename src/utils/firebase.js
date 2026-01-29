@@ -25,6 +25,8 @@ const analytics = getAnalytics(app);
 const appId = "recipe-blog-vsc-001"; // 또는 본인이 설정한 ID
 const userId = "user_" + Math.random().toString(36).substr(2, 9); // 임시 유저 ID 예시
 const projectId = "k-food-with-german-groceries";
-  
-// 3. 내보내기에 analytics 추가
+// ⭐ 여기에 제미나이 키를 변수로 할당합니다 (환경변수 사용 추천)
+export const apiKey_gemini = import.meta.env.VITE_GEMINI_API_KEY; 
+
+// ⭐ export 목록에도 추가하거나, 위처럼 앞에 export를 바로 붙여주세요.
 export { db, auth, analytics, app, appId, userId, storage, projectId };
