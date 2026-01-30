@@ -22,7 +22,7 @@ const Header = ({ currentLang, setCurrentLang }) => {
     </h1>
 </Link>
 
-              <nav className="flex md:flex items-center gap-6 md:gap-8">
+<nav className="flex md:flex items-center gap-6 md:gap-8">
   <Link
     to="/price"
     className="flex items-center gap-1.5 text-lg md:text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
@@ -73,17 +73,22 @@ const Header = ({ currentLang, setCurrentLang }) => {
 </nav>
 
 
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {['ko', 'en', 'de'].map(lang => (
-                        <button
-                            key={lang}
-                            onClick={() => setCurrentLang(lang)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === lang ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                        >
-                            {lang.toUpperCase()}
-                        </button>
-                    ))}
-                </div>
+                {/* 🌟 언어 설정 영역: ml-4 md:ml-6 을 추가해서 간격을 띄웠습니다 */}
+<div className="flex bg-slate-100 p-1 rounded-xl ml-4 md:ml-6 shadow-sm border border-slate-200/50">
+    {['ko', 'en', 'de'].map(lang => (
+        <button
+            key={lang}
+            onClick={() => setCurrentLang(lang)}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                currentLang === lang 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-600'
+            }`}
+        >
+            {lang.toUpperCase()}
+        </button>
+    ))}
+</div>
             </div>
         </header>
     );
