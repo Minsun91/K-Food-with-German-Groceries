@@ -13,7 +13,7 @@ const RecipeModal = ({
     onUpdateRecipe,
     isFromSaved,
     isSaving,
-    handleSaveRecipe
+    
 }) => {
     const [justSavedId, setJustSavedId] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
