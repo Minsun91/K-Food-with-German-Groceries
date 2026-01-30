@@ -12,7 +12,8 @@ const RecipeModal = ({
     userId,
     onUpdateRecipe,
     isFromSaved,
-    isSaving
+    isSaving,
+    handleSaveRecipe
 }) => {
     const [justSavedId, setJustSavedId] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -188,14 +189,14 @@ const RecipeModal = ({
                                 {/* 2. 공유 버튼 섹션 (가로 배치) */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={shareToWhatsApp}
+                                        onClick={() => shareToWhatsApp(recipe, currentLang)}
                                         className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md"
                                     >
                                         <span className="text-xl">💬</span> WhatsApp
                                     </button>
 
                                     <button
-                                        onClick={shareToKakao}
+                                        onClick={() => shareToKakao(recipe, currentLang)}
                                         className="flex items-center justify-center gap-2 bg-[#FEE500] hover:bg-[#FADA00] text-[#3c1e1e] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md"
                                     >
                                         <span className="text-xl">💛</span> Kakao
