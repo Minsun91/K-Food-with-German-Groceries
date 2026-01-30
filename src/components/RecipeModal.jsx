@@ -188,6 +188,7 @@ const RecipeModal = ({
 
                                 {/* 2. 공유 버튼 섹션 (가로 배치) */}
                                 <div className="grid grid-cols-2 gap-3">
+                                    
                                     <button
                                         onClick={() => shareToWhatsApp(recipe, currentLang)}
                                         className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md"

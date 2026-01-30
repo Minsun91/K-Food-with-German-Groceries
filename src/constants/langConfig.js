@@ -27,7 +27,9 @@ export const langConfig = {
         coffee_button: "서버비 보태기",
         mart_compare: "개 마트 비교",
         no_price_data: "비교 가능한 데이터가 아직 없습니다.",
-        best_price: "최저가"
+        best_price: "최저가",
+        foodPlaceholder: "어떤 음식을 찾으세요? 🍲",
+        beautyPlaceholder: "지금 가장 핫한 K-Beauty 최저가는? ✨"
     },
     en: {
         name: "English",
@@ -56,7 +58,9 @@ export const langConfig = {
         coffee_button: "Keep the Tracker Alive",
         mart_compare: "marts compared",
         no_price_data: "No comparison data available yet.",
-        best_price: "Best Price"
+        best_price: "Best Price",
+        foodPlaceholder: "What are you craving today? 🥘",
+        beautyPlaceholder: "Find the hottest K-Beauty deals here! ✨"
     },
     de: {
         name: "Deutsch",
@@ -85,7 +89,9 @@ export const langConfig = {
         coffee_button: "Unterstütze den Server-Host",
         mart_compare: "Märkte im Vergleich",
         no_price_data: "Noch keine Vergleichsdaten verfügbar.",
-        best_price: "Bester Preis"
+        best_price: "Bester Preis",
+        foodPlaceholder: "Welches Gericht suchen Sie? 🍛",
+        beautyPlaceholder: "Beste K-Beauty Deals entdecken! ✨"
     },
 };
 

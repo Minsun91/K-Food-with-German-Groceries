@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../utils/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { shareToKakao as handleKakaoShare, shareToWhatsApp as handleWhatsAppShare, shareToWhatsApp } from '../../utils/share';
+import { shareToKakao, shareToWhatsApp } from '../../utils/share';
+import { langConfig } from '../../constants/langConfig';
 
 // 🚚 배송비 정보 데이터
 const DELIVERY_INFO = [
@@ -107,11 +108,8 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
         return grouped;
     }, [prices, searchTerm, categoryTab]);
 
-    // 공유 로직 (기존 함수 유지)
-    const handleKakaoShare = (item) => { /* 기존 코드와 동일 */ };
-    const handleWhatsAppShare = (item) => { /* 기존 코드와 동일 */ };
-
     if (loading) return <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse">Lade Preise...</div>;
+    const searchTexts = langConfig[currentLang]?.search || langConfig['ko'].search;
 
     return (
         <div className="w-full bg-white animate-in fade-in duration-500">
@@ -186,17 +184,36 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
             {/* 🔍 3. 검색바 */}
             <div className="px-4 md:px-6 py-4 search-bar-anchor">
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">🔍</div>
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder={categoryTab === 'food' ? "어떤 음식을 찾으세요?" : "리들샷 등 화장품 검색..."}
-                        className="w-full pl-11 pr-12 py-4 bg-slate-100/80 border-none rounded-2xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
-                    />
-                </div>
-            </div>
+    <div className="relative group">
+        {/* 아이콘: 더 선명하게 */}
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+            🔍
+        </div>
+        
+        <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={
+                categoryTab === 'food' 
+                    ? (langConfig[currentLang]?.foodPlaceholder || langConfig['ko'].foodPlaceholder)
+                    : (langConfig[currentLang]?.beautyPlaceholder || langConfig['ko'].beautyPlaceholder)
+            }
+            // bg-white/50 대신 더 선명한 흰색 배경과 그림자 추가
+            className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400"
+        />
+
+        {/* 지우기 버튼: 입력 중일 때만 등장 */}
+        {searchTerm && (
+            <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-300 hover:text-indigo-500 transition-colors"
+            >
+                <span className="bg-slate-100 rounded-full p-1">✕</span>
+            </button>
+        )}
+    </div>
+</div>
 
             {/* 📦 4. 상품 리스트 (기존 렌더링 로직 유지) */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
@@ -232,129 +249,62 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                             // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
 
                             return timeB - timeA;
-
                         })
 
                         .map((category) => {
-
                             const items = filteredAndGroupedData[category];
-
                             const firstItem = items[0];
 
 
-
                             // 🌟 NEW 배지 조건 수정: 
-
-                            // 강제 지정 대신, 실제로 업데이트된 지 48시간 이내인 제품에 NEW를 붙임
-
                             const latestUpdate = Math.max(...items.map(i => new Date(i.updatedAt || 0).getTime()));
-
                             const isNew = (Date.now() - latestUpdate) < (48 * 60 * 60 * 1000); // 48시간 기준
-
-
-
                             const shareData = {
-
-                                name: category,
-
-                                minPrice: firstItem.minPrice,
-
-                                maxPrice: firstItem.maxPrice,
-
-                                bestStore: firstItem.bestStore || firstItem.mart
-
+                                name: category,                       // 품목 카테고리 명 (예: 맥심 모카골드)
+    price: firstItem.minPrice || "0.00",  // 최저가
+    // 절약 금액: 최고가 - 최저가 (이미지의 "7.00€ 절약" 로직)
+    savings: (firstItem.maxPrice && firstItem.minPrice) 
+        ? (firstItem.maxPrice - firstItem.minPrice).toFixed(2) 
+        : "0.00",
+    bestStore: firstItem.bestStore || firstItem.mart || "마트"
                             };
 
-
-
-
-
                             return (
-
                                 <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
-
                                     <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-
                                         <div className="flex items-center gap-2">
-
                                             <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
-
                                                 # {category}
-
                                                 {isNew && (
-
                                                     <span className="animate-pulse inline-block bg-rose-500 text-[9px] text-white px-2 py-0.5 rounded-full font-black shadow-sm">
-
                                                         NEW
-
                                                     </span>
-
                                                 )}
-
                                             </h3>
-
                                             <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-
                                                 {items.length}개 결과
-
                                             </span>
-
                                         </div>
-
 
 
                                         {/* 🔗 상단으로 옮겨진 깔끔한 공유 버튼 */}
 
                                         <div className="flex gap-1.5">
-
-                                            <button
-
-onClick={() => shareToKakao(shareData, currentLang)}
-
-                                                className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity"
-
-                                            >
-
-                                                카톡
-
-                                            </button>
-
-                                            <button
-
-onClick={() => shareToWhatsApp(shareData, currentLang)}
-
-                                                className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity"
-
-                                            >
-
-                                                WA
-
-                                            </button>
-
+                                        <button onClick={() => shareToKakao(shareData, currentLang)} className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity">카톡</button>
+                                           <button onClick={() => shareToWhatsApp(shareData, currentLang)} className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity">WA</button>
                                         </div>
-
                                     </div>
 
 
-
                                     {/* 🛒 상품 목록 */}
-
                                     <div className="divide-y divide-slate-100/50">
-
                                         {filteredAndGroupedData[category].map((p, idx) => {
-
                                             const currentPrice = parseFloat(p.price) || 0;
-
                                             const prevPrice = p.prevPrice ? parseFloat(p.prevPrice) : null;
 
-
-
                                             return (
-
                                                 <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer" onClick={() => {
-
                                                     window.gtag?.('event', 'click_amazon_product', {
-
                                                         'product_name': p.item,      // 예: "고추장", "참기름"
 
                                                         'mart_name': p.mart,         // 예: "Amazon", "K-Shop"
