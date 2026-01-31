@@ -104,65 +104,57 @@ const currentDelivery = DELIVERY_INFO[currentLang] || DELIVERY_INFO['ko'];
     const searchTexts = langConfig[currentLang]?.search || langConfig['ko'].search;
 
     return (
-        <div className="w-full bg-white animate-in fade-in duration-500">
+<div className="w-full bg-white animate-in fade-in duration-500">
             {/* 🚚 1. 배송비 정보 상단 바 */}
+            <div className="w-full bg-white py-3 border-b border-slate-100 overflow-hidden relative group">
+                <div className="flex whitespace-nowrap animate-marquee group-hover:pause">
+                    {[...DELIVERY_INFO, ...DELIVERY_INFO].map((info, i) => {
+                        // 마트별 색상 매핑
+                        const getDotColor = (name) => {
+                            switch (name) {
+                                case '다와요': return 'bg-red-350';
+                                case 'Y-Mart': return 'bg-blue-450';
+                                case '한독몰': return 'bg-pink-500';
+                                case 'Kocket': return 'bg-indigo-600';
+                                case 'K-shop': return 'bg-blue-500';
+                                case 'JoyBuy': return 'bg-red-500';
+                                case 'GoAsia': return 'bg-red-700';
+                                default: return 'bg-slate-400';
+                            }
+                        };
 
-            {/* 배송 정보 리스트 렌더링 예시 */}
-// 1. 현재 언어에 맞는 배열을 먼저 추출 (langConfig가 아니라 currentLang을 넣어야 합니다!)
-const currentDelivery = DELIVERY_INFO[currentLang] || DELIVERY_INFO['ko'];
+                        return (
+                            <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
+                                {/* 마트별 고유 컬러 점 */}
+                                <span className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`} />
 
-// ... JSX 내부
-<div className="w-full bg-white py-3 border-b border-slate-100 overflow-hidden relative group">
-    <div className="flex whitespace-nowrap animate-marquee group-hover:pause">
-        {/* 2. DELIVERY_INFO 대신 currentDelivery를 사용해야 에러가 안 납니다 */}
-        {[...currentDelivery, ...currentDelivery].map((info, i) => {
-            // 마트별 색상 매핑
-            const getDotColor = (name) => {
-                // 독일어/영어 이름으로 들어올 경우를 대비해 처리
-                const lowerName = name.toLowerCase();
-                if (lowerName.includes('다와요') || lowerName.includes('dawayo')) return 'bg-red-400';
-                if (lowerName.includes('y-mart')) return 'bg-blue-400';
-                if (lowerName.includes('한독몰') || lowerName.includes('handok')) return 'bg-pink-500';
-                if (lowerName.includes('kocket')) return 'bg-indigo-600';
-                if (lowerName.includes('k-shop')) return 'bg-blue-500';
-                if (lowerName.includes('joybuy')) return 'bg-red-500';
-                if (lowerName.includes('goasia')) return 'bg-red-700';
-                return 'bg-slate-400';
-            };
-
-            return (
-                <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
-                    {/* 마트별 고유 컬러 점 */}
-                    <span className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`} />
-
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
-                        {info.name}
-                    </span>
-                    <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
-                        {info.info}
-                    </span>
-                    <span className="text-slate-200 text-xs ml-4">|</span>
+                                <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                                    {info.name}
+                                </span>
+                                <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
+                                    {info.info}
+                                </span>
+                                <span className="text-slate-200 text-xs ml-4">|</span>
+                            </div>
+                        );
+                    })}
                 </div>
-            );
-        })}
-    </div>
 
-    <style dangerouslySetInnerHTML={{
-        __html: `
-            @keyframes marquee {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
-            }
-            .animate-marquee {
-                display: flex;
-                animation: marquee 25s linear infinite; 
-            }
-            .group:hover .animate-marquee {
-                animation-play-state: paused;
-            }
-        `
-    }} />
-</div>
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: flex;
+            animation: marquee 20s linear infinite; /* 속도를 조금 더 여유롭게 조정 */
+        }
+        .group:hover .animate-marquee {
+            animation-play-state: paused;
+        }
+    `}} />
+            </div>
 
             {/* 💄 2. [식품 / 뷰티] 카테고리 전환 탭 (추가됨) */}
             <div className="flex justify-center mt-6 mb-2">
