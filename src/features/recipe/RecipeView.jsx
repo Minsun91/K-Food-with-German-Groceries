@@ -308,9 +308,22 @@ const onUpdateRecipe = async (recipeId, updatedData) => {
                     />
                 </div>
 
-                <button onClick={handleGenerateRecipe} disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl text-lg font-black shadow-xl transition-all active:scale-[0.98] mb-4">
-                    {isLoading ? "🍳 AI가 레시피를 짜는 중..." : (t.button_ready || "레시피 생성하기 🍚")}
-                </button>
+                {/* 레시피 생성 버튼 */}
+<button 
+    onClick={handleGenerateRecipe} 
+    disabled={isLoading} 
+    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl text-lg font-black shadow-xl transition-all active:scale-[0.98] mb-4"
+>
+    {isLoading ? (
+        currentLang === 'ko' ? "🍳 AI가 레시피를 짜는 중..." : 
+        currentLang === 'de' ? "🍳 AI erstellt Rezept..." : "🍳 AI is cooking..."
+    ) : (
+        t.button_ready || (currentLang === 'ko' ? "레시피 생성하기 🍚" : "Generate Recipe 🍚")
+    )}
+</button>
+
+
+
 
                 <div className="text-slate-400 font-bold text-xs text-left ml-2">
                     {currentLang === 'ko' ? <>1시간당 25회 중 <span className="text-emerald-500 font-black">{(MAX_CALLS_PER_HOUR - (rateLimit?.count || 0))}</span> 남음</> : <>Remaining: <span className="text-emerald-500 font-black">{(MAX_CALLS_PER_HOUR - (rateLimit?.count || 0))}</span> / 25</>}
@@ -342,13 +355,19 @@ const onUpdateRecipe = async (recipeId, updatedData) => {
                 </div>
 
                 {/* 레시피 목록 아래 배치 */}
+
 <div className="mt-10 mb-10 px-4">
     {hasMore ? (
         <button 
             onClick={() => fetchRecipes(false)} // false를 넘겨서 더보기 로직 실행
             className="w-full py-5 bg-white border-2 border-indigo-100 rounded-[2rem] text-indigo-600 font-black text-base shadow-sm hover:bg-indigo-50 hover:border-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
-            <span>{currentLang === 'ko' ? "레시피 더보기" : "Mehr Rezepte"}</span>
+<div className="flex justify-center items-center gap-2 mb-8 text-slate-400">
+    <span className="text-sm font-bold">
+        {currentLang === 'ko' ? "레시피 더보기" : 
+         currentLang === 'de' ? "Mehr Rezepte" : "More Recipes"}
+    </span>
+</div>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
             </svg>

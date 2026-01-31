@@ -115,3 +115,33 @@ export const limitMessages = {
             button: "Verstanden"
         }
     };
+
+export const DELIVERY_INFO = {
+    ko: [
+        { name: "다와요", info: "60€↑ 무료" },
+        { name: "Y-Mart", info: "70€↑ 무료 (최소 30€)" },
+        { name: "한독몰", info: "70€↑ 무료 (픽업 5%↓)" },
+        { name: "Kocket", info: "49€↑ 무료" },
+        { name: "K-shop", info: "70€↑ 무료 (냉동 4.99€)" },
+        { name: "JoyBuy", info: "당일 배송 €3.99" },
+        { name: "GoAsia", info: "39€↑ 무료" },
+    ],
+    en: [
+        { name: "Dawayo", info: "Free over 60€" },
+        { name: "Y-Mart", info: "Free over 70€ (Min. 30€)" },
+        { name: "Handokmall", info: "Free over 70€ (Pickup 5%↓)" },
+        { name: "Kocket", info: "Free over 49€" },
+        { name: "K-shop", info: "Free over 70€ (Frozen 4.99€)" },
+        { name: "JoyBuy", info: "Same day delivery €3.99" },
+        { name: "GoAsia", info: "Free over 39€" },
+    ],
+    de: [
+        { name: "Dawayo", info: "Gratis ab 60€" },
+        { name: "Y-Mart", info: "Gratis ab 70€ (Min. 30€)" },
+        { name: "Handokmall", info: "Gratis ab 70€ (Abholung 5%↓)" },
+        { name: "Kocket", info: "Gratis ab 49€" },
+        { name: "K-shop", info: "Gratis ab 70€ (Tiefkühl 4.99€)" },
+        { name: "JoyBuy", info: "Same Day Lieferung €3.99" },
+        { name: "GoAsia", info: "Gratis ab 39€" },
+    ]
+};

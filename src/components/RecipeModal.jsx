@@ -187,29 +187,47 @@ const RecipeModal = ({
                                 )}
 
                                 {/* 2. 공유 버튼 섹션 (가로 배치) */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    
-                                    <button
-                                        onClick={() => shareToWhatsApp(recipe, currentLang)}
-                                        className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md"
-                                    >
-                                        <span className="text-xl">💬</span> WhatsApp
-                                    </button>
-
-                                    <button
-                                        onClick={() => shareToKakao(recipe, currentLang)}
-                                        className="flex items-center justify-center gap-2 bg-[#FEE500] hover:bg-[#FADA00] text-[#3c1e1e] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-md"
-                                    >
-                                        <span className="text-xl">💛</span> Kakao
-                                    </button>
-                                </div>
-
+                              <div className="mt-6 flex flex-col gap-3">
+    {recipe.id ? (
+        // ✅ 저장 후: 화려하고 선명한 공유 버튼 등장!
+        <div className="flex flex-col gap-2">
+            <p className="text-[11px] text-indigo-500 font-bold ml-1">
+                ✨ 레시피가 저장되었습니다! 친구에게 공유해보세요.
+            </p>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => shareToKakao(recipe, currentLang)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#FEE500] py-3 rounded-2xl text-[12px] font-black text-[#3A1D1D] hover:opacity-90 shadow-sm transition-all active:scale-95"
+                >
+                    카카오톡 공유
+                </button>
+                <button
+                    onClick={() => shareToWhatsApp(recipe, currentLang)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] py-3 rounded-2xl text-[12px] font-black text-white hover:opacity-90 shadow-sm transition-all active:scale-95"
+                >
+                    WhatsApp
+                </button>
+            </div>
+        </div>
+    ) : (
+        // 🔒 저장 전: 버튼 대신 부드러운 안내창 표시
+        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
+            <span className="text-lg">💾</span>
+            <p className="text-[12px] font-bold text-slate-500">
+                레시피를 먼저 저장해주세요
+            </p>
+            <p className="text-[10px] text-slate-400">
+                저장 완료 후 공유 버튼이 활성화됩니다.
+            </p>
+        </div>
+    )}
+</div>
                                 {/* 3. ⭐ 여기에 닫기 버튼 추가! ⭐ */}
                                 <button
                                     onClick={onClose}
                                     className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-5 rounded-2xl font-black text-base transition-all mt-2 active:scale-95"
                                 >
-                                    {currentLang === 'ko' ? '창 닫기' : 'Schließen'}
+{currentLang === 'ko' ? '창 닫기' : currentLang === 'en' ? 'Close' : 'Schließen'}
                                 </button>
                             </div>             
                 </>
