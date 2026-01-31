@@ -82,38 +82,57 @@
 //       }
 //   };
 
+
   // WhatsApp 공유 함수
-  export const shareToWhatsApp = (data, currentLang = 'ko') => {
+// WhatsApp 공유 함수
+export const shareToWhatsApp = (data, currentLang = 'ko') => {
     if (!data) return;
 
-    // 🌟 판별 로직 강화: data.id가 확실히 있을 때만 레시피로 인식
-    const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
-    const name = data[`name_${currentLang}`] || data.name_ko || data.name || "K-Food";
+    // 1. 모든 언어 필드 체크 (이름 누락 방지)
+    const name = data[`name_${currentLang}`] || data.name_ko || data.name_en || data.name_de || data.name || "K-Food";
     
-    let msgText = "";
+    // 2. 레시피 판별 로직
+    const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
+
+    // 3. 변수 먼저 선언 (에러 방지 핵심!)
     const shareUrl = isRecipe 
         ? `${window.location.origin}/recipe?recipeId=${data.id}&lang=${currentLang}`
         : `${window.location.origin}/price?search=${encodeURIComponent(name)}&lang=${currentLang}`;
 
+    let msgText = "";
+
     if (isRecipe) {
-        // ✅ 레시피 모드 전용 문구
-        const inviteText = currentLang === 'de' ? "Probier dieses Rezept aus!" : "이 레시피 한번 해보세요!";
+        // ✅ 레시피 모드
+        const inviteText = 
+            currentLang === 'de' ? "Probier dieses Rezept aus!" : 
+            currentLang === 'en' ? "Check out this recipe!" : 
+            "이 레시피 한번 해보세요!";
         msgText = `*${name}*\n${inviteText}\n\n👉 ${shareUrl}`;
     } else {
-        // ✅ 가격 비교 모드 전용 문구 (Buldak 등 품목용)
+        // ✅ 가격 비교 모드
         const price = data.price || "0.00";
         const savings = (data.savings && data.savings !== "0.00") ? ` (${data.savings}€ 절약!)` : "";
-        const priceMsg = currentLang === 'de' ? `Bester Preis: ${price}€${savings}` : `최저가 정보: ${price}€${savings}`;
+        const priceMsg = 
+            currentLang === 'de' ? `Bester Preis: ${price}€${savings}` : 
+            currentLang === 'en' ? `Best Price: ${price}€${savings}` :
+            `최저가 정보: ${price}€${savings}`;
         
-        msgText = `🛒 *${name} 최저가 알림*\n${priceMsg}\n지금 확인하고 절약하세요! 👇\n${shareUrl}`;
+        const actionMsg = 
+            currentLang === 'de' ? "Jetzt sparen!" : 
+            currentLang === 'en' ? "Save now!" : 
+            "지금 확인하고 절약하세요!";
+
+        msgText = `🛒 *${name}*\n${priceMsg}\n${actionMsg} 👇\n${shareUrl}`;
     }
 
     window.open(`https://wa.me/?text=${encodeURIComponent(msgText)}`, '_blank');
 };
 
+
 // Kakao 공유 함수
 export const shareToKakao = (data, currentLang = 'ko') => {
     const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
+    const name = data[`name_${currentLang}`] || data.name_ko || data.name || "K-Food";
 
     if (!data || !window.Kakao) {
         console.error("Kakao SDK 미로드 또는 데이터 없음");
@@ -126,9 +145,7 @@ export const shareToKakao = (data, currentLang = 'ko') => {
 
     // 🌟 판별 로직 강화: id가 '문자열'이면서 길이가 충분할 때만 레시피로 간주
     const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
-    
-    const name = data[`name_${currentLang}`] || data.name_ko || data.name || "K-Food";
-    
+        
     // URL 생성 로직 분리
     const shareUrl = isRecipe 
         ? `${window.location.origin}/recipe?recipeId=${data.id}&lang=${currentLang}`

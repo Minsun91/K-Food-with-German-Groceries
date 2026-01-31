@@ -246,9 +246,12 @@ const handleSaveRecipe = async (recipeData) => {
       
       const saveData = {
           ...targetData,
-          id: newDocRef.id, // 생성된 ID를 데이터에 포함
-          userId,
-          createdAt: serverTimestamp(),
+          name_ko: targetData.name_ko || targetData.name || "",
+    name_en: targetData.name_en || targetData.name || "",
+    name_de: targetData.name_de || targetData.name || "",
+    id: newDocRef.id,
+    userId,
+    createdAt: serverTimestamp(),
           timestamp: serverTimestamp() 
       };
 
