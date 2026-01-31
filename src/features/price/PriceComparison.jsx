@@ -18,7 +18,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
-const currentDelivery = DELIVERY_INFO[currentLang] || DELIVERY_INFO['ko'];
+// const currentDelivery = DELIVERY_INFO[currentLang] || DELIVERY_INFO['ko'];
 
     // Firebase 데이터 로드
     useEffect(() => {
