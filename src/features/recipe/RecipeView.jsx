@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../utils/firebase';
 import { 
-    collection, query, orderBy, limit, getDocs, startAfter, doc, setDoc, getDoc, serverTimestamp 
+    collection, query, orderBy, limit, getDocs, startAfter, doc, setDoc, getDoc, serverTimestamp, updateDoc
 } from 'firebase/firestore';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import RecipeModal from '../../components/RecipeModal';
