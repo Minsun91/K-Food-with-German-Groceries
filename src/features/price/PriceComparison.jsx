@@ -18,7 +18,10 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
-// const currentDelivery = DELIVERY_INFO[currentLang] || DELIVERY_INFO['ko'];
+
+    const currentDelivery = (DELIVERY_INFO && currentLang && DELIVERY_INFO[currentLang]) 
+    ? DELIVERY_INFO[currentLang] 
+    : (DELIVERY_INFO?.ko || []); // 데이터가 없어도 최소한 빈 배열을 주어 에러 방지
 
     // Firebase 데이터 로드
     useEffect(() => {
@@ -108,37 +111,35 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             {/* 🚚 1. 배송비 정보 상단 바 */}
             <div className="w-full bg-white py-3 border-b border-slate-100 overflow-hidden relative group">
                 <div className="flex whitespace-nowrap animate-marquee group-hover:pause">
-                    {[...DELIVERY_INFO, ...DELIVERY_INFO].map((info, i) => {
-                        // 마트별 색상 매핑
-                        const getDotColor = (name) => {
-                            switch (name) {
-                                case '다와요': return 'bg-red-350';
-                                case 'Y-Mart': return 'bg-blue-450';
-                                case '한독몰': return 'bg-pink-500';
-                                case 'Kocket': return 'bg-indigo-600';
-                                case 'K-shop': return 'bg-blue-500';
-                                case 'JoyBuy': return 'bg-red-500';
-                                case 'GoAsia': return 'bg-red-700';
-                                default: return 'bg-slate-400';
-                            }
-                        };
+{currentDelivery.length > 0 && [...currentDelivery, ...currentDelivery].map((info, i) => {
+                const getDotColor = (name) => {
+                    if (!name) return 'bg-slate-400';
+                    const lowerName = name.toLowerCase();
+                    if (lowerName.includes('다와요') || lowerName.includes('dawayo')) return 'bg-red-400';
+                    if (lowerName.includes('y-mart')) return 'bg-blue-400';
+                    if (lowerName.includes('한독몰') || lowerName.includes('handok')) return 'bg-pink-500';
+                    if (lowerName.includes('kocket')) return 'bg-indigo-600';
+                    if (lowerName.includes('k-shop')) return 'bg-blue-500';
+                    if (lowerName.includes('joybuy')) return 'bg-red-500';
+                    if (lowerName.includes('goasia')) return 'bg-red-700';
+                    return 'bg-slate-400';
+                };                        // 마트별 색상 매핑
+                    
 
                         return (
-                            <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
-                                {/* 마트별 고유 컬러 점 */}
-                                <span className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`} />
-
-                                <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
-                                    {info.name}
-                                </span>
-                                <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
-                                    {info.info}
-                                </span>
-                                <span className="text-slate-200 text-xs ml-4">|</span>
-                            </div>
-                        );
-                    })}
-                </div>
+<div key={i} className="flex items-center gap-2 mx-6 shrink-0">
+                        <span className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`} />
+                        <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                            {info.name}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
+                            {info.info}
+                        </span>
+                        <span className="text-slate-200 text-xs ml-4">|</span>
+                    </div>
+                );
+            })}
+        </div>
 
                 <style dangerouslySetInnerHTML={{
                     __html: `

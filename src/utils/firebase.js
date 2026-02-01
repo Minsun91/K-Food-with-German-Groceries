@@ -32,3 +32,4 @@ export const apiKey_gemini = import.meta.env.VITE_GEMINI_API_KEY;
 export { db, auth, analytics, app, appId, userId, storage, projectId };
 
 
+
