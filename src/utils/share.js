@@ -132,7 +132,9 @@ export const shareToWhatsApp = (data, currentLang = 'ko') => {
 // Kakao 공유 함수
 export const shareToKakao = (data, currentLang = 'ko') => {
     const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
-    const name = data[`name_${currentLang}`] || data.name_ko || data.name || "K-Food";
+    
+    // 1. 모든 언어 필드 체크 (이름 누락 방지 - 왓츠앱과 통일)
+    const name = data[`name_${currentLang}`] || data.name_ko || data.name_en || data.name_de || data.name || "K-Food";
 
     if (!data || !window.Kakao) {
         console.error("Kakao SDK 미로드 또는 데이터 없음");
@@ -143,31 +145,48 @@ export const shareToKakao = (data, currentLang = 'ko') => {
         window.Kakao.init(kakaoKey);
     }
 
-    // 🌟 판별 로직 강화: id가 '문자열'이면서 길이가 충분할 때만 레시피로 간주
+    // 2. 레시피 판별 로직
     const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
         
-    // URL 생성 로직 분리
+    // 3. URL 생성
     const shareUrl = isRecipe 
         ? `${window.location.origin}/recipe?recipeId=${data.id}&lang=${currentLang}`
         : `${window.location.origin}/price?search=${encodeURIComponent(name)}&lang=${currentLang}`;
 
-    // 설명 문구 최적화
-    const description = isRecipe 
-        ? (currentLang === 'de' ? 'Koreanische Rezepte mit Zutaten aus DE' : '독일 마트 재료로 만든 한식 레시피!')
-        : (currentLang === 'de' 
-            ? `Sparen Sie ${data.savings || '0.00'}€ bei ${name}!` 
-            : `${name} 최저가 ${data.price || '0.00'}€! 지금 확인하면 ${data.savings || '0.00'}€ 절약! 💰`);
+    // 4. 설명 문구 (왓츠앱처럼 다정하게 수정 ✨)
+    let description = "";
+    if (isRecipe) {
+        // ✅ 레시피 모드: "이거 해보세요" 멘트 추가
+        const inviteText = 
+            currentLang === 'de' ? "Probier dieses Rezept aus! 👩‍🍳" : 
+            currentLang === 'en' ? "You should try this recipe! 🍳" : 
+            "이 레시피 한번 해보세요! 😋";
+            
+        const subText = 
+            currentLang === 'de' ? "Zutaten aus deutschen Supermärkten." : 
+            "독일 마트 재료로 만드는 쉽고 맛있는 한식!";
+            
+        description = `${inviteText}\n${subText}`;
+    } else {
+        // ✅ 가격 비교 모드: 절약 강조
+        const savings = (data.savings && data.savings !== "0.00") ? ` (${data.savings}€ 절약!)` : "";
+        description = currentLang === 'de' 
+            ? `Sparen Sie ${data.savings || '0.00'}€ bei ${name}! 💸 Now or Never!` 
+            : `${name} 최저가 ${data.price || '0.00'}€!${savings}\n지금 확인하고 장바구니 무게를 줄이세요! 🛒`;
+    }
 
     window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
-            title: isRecipe ? name : `🛒 ${name} 최저가 정보`,
+            title: isRecipe ? `👨‍🍳 [Recipe] ${name}` : `🛒 [Lowest Price] ${name}`,
             description: description,
             imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
             link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
         },
         buttons: [{
-            title: isRecipe ? (currentLang === 'de' ? 'Rezept ansehen' : '레시피 보기') : '가격 확인하기',
+            title: isRecipe 
+                ? (currentLang === 'de' ? 'Rezept öffnen' : currentLang === 'en' ? 'View Recipe' : '레시피 보기') 
+                : (currentLang === 'de' ? 'Preis prüfen' : '가격 확인하기'),
             link: { mobileWebUrl: shareUrl, webUrl: shareUrl }
         }],
     });
