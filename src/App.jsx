@@ -42,7 +42,11 @@ function App() {
             <main className="max-w-6xl mx-auto px-4 py-8 min-h-screen">
                 <Routes>
                     {/* 메인 홈 */}
-                    <Route path="/" element={<HomeView currentLang={currentLang} />} />
+                    <Route path="/" element={<HomeView 
+  currentLang={currentLang} 
+  setCurrentLang={setCurrentLang}  // 👈 이게 반드시 있어야 합니다!
+/>} />
+                    
                     
                     {/* 가격 비교 */}
                     <Route path="/price" element={<PriceComparison currentLang={currentLang} />} />
