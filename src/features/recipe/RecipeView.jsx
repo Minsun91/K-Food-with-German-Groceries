@@ -361,20 +361,21 @@ const onUpdateRecipe = async (recipeId, updatedData) => {
 
 <div className="mt-10 mb-10 px-4">
     {hasMore ? (
-        <button 
-            onClick={() => fetchRecipes(false)} // false를 넘겨서 더보기 로직 실행
-            className="w-full py-5 bg-white border-2 border-indigo-100 rounded-[2rem] text-indigo-600 font-black text-base shadow-sm hover:bg-indigo-50 hover:border-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-        >
-<div className="flex justify-center items-center gap-2 mb-8 text-slate-400">
-    <span className="text-sm font-bold">
+       <button 
+    onClick={() => fetchRecipes(false)} 
+    className="w-full py-5 bg-white border-2 border-indigo-100 rounded-[2rem] text-indigo-600 font-black shadow-sm hover:bg-indigo-50 hover:border-indigo-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+>
+    {/* 텍스트 크기를 text-lg(18px)로 키우고 불필요한 div와 마진을 제거했습니다 */}
+    <span className="text-lg">
         {currentLang === 'ko' ? "레시피 더보기" : 
          currentLang === 'de' ? "Mehr Rezepte" : "More Recipes"}
     </span>
-</div>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
+    
+    {/* 아이콘 크기도 텍스트에 맞춰 살짝 키웠습니다 */}
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+    </svg>
+</button>
     ) : (
         <div className="w-full py-4 text-center text-slate-400 text-sm font-medium">
             {recentRecipes.length > 0 
