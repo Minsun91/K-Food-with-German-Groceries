@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../utils/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -20,7 +20,6 @@ const RecipeModal = ({
     const [editData, setEditData] = useState({});
     // const [editData, setEditData] = useState({ ...recipe });
     const [imageFile, setImageFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(recipe.imageUrl || null);
     const [isUpdating, setIsUpdating] = useState(false); // 수정 중 로딩 상태
     const [communityFiles, setCommunityFiles] = useState([]); // 파일들
     const [communityPreviews, setCommunityPreviews] = useState([]); // 미리보기들
@@ -28,13 +27,17 @@ const RecipeModal = ({
     const isOwner = recipe.userId === userId;
     if (!recipe) return null;
 
-    const displayName =
-        editData[`name_${currentLang}`] || editData.name_ko || editData.name;
-    const displayIngredients =
-        editData[`ingredients_${currentLang}`] ||
-        editData.ingredients_ko ||
-        editData.ingredients ||
-        [];
+    // 이름 결정
+const displayName =
+    editData?.[`name_${currentLang}`] || 
+    recipe?.[`name_${currentLang}`] || 
+    recipe?.name_ko || 
+    "";
+
+// 재료 배열 결정
+const displayIngredients = isEditing 
+    ? (editData?.[`ingredients_${currentLang}`] || [])
+    : (recipe?.[`ingredients_${currentLang}`] || recipe?.ingredients || []);
 
     const MARKET_URLS = {
         rewe: "https://shop.rewe.de/auswahl?search=",
@@ -44,24 +47,40 @@ const RecipeModal = ({
     };
 
     useEffect(() => {
-    if (recipe) {
-        setEditData({
-            ...recipe,
-            steps_ko: recipe.steps_ko || [],
-            steps_de: recipe.steps_de || [],
-            steps_en: recipe.steps_en || [],
-            name_ko: recipe.name_ko || "",
-            ingredients: recipe.ingredients || ""
-        });
-    }
-}, [recipe?.id]);
+        if (recipe) {
+            setEditData({
+                ...recipe,
+                // 조리 순서
+                steps_ko: recipe.steps_ko || [],
+                steps_de: recipe.steps_de || [],
+                steps_en: recipe.steps_en || [],
 
-// 수정 중일 때는 editData를, 아닐 때는 원본 recipe를 사용
-const displaySteps = isEditing 
-    ? (editData?.[`steps_${currentLang}`] || []) 
-    : (recipe?.[`steps_${currentLang}`] || []);
+                // 이름
+                name_ko: recipe.name_ko || "",
+                name_de: recipe.name_de || "",
+                name_en: recipe.name_en || "",
 
-    if (!recipe) return null;
+                // 🥗 재료 (언어별로 불러오기)
+               // 🥗 재료 부분 수정
+ingredients_ko: Array.isArray(recipe.ingredients_ko) ? recipe.ingredients_ko : (Array.isArray(recipe.ingredients) ? recipe.ingredients : []),
+ingredients_de: Array.isArray(recipe.ingredients_de) ? recipe.ingredients_de : (Array.isArray(recipe.ingredients) ? recipe.ingredients : []),
+ingredients_en: Array.isArray(recipe.ingredients_en) ? recipe.ingredients_en : (Array.isArray(recipe.ingredients) ? recipe.ingredients : []),
+
+                // 📝 설명 (언어별로 불러오기)
+                description_ko:
+                    recipe.description_ko || recipe.description || "",
+                description_de:
+                    recipe.description_de || recipe.description || "",
+                description_en:
+                    recipe.description_en || recipe.description || "",
+            });
+        }
+    }, [recipe?.id]);
+
+    // 수정 중일 때는 editData를, 아닐 때는 원본 recipe를 사용
+    const displaySteps = isEditing
+        ? editData?.[`steps_${currentLang}`] || []
+        : recipe?.[`steps_${currentLang}`] || [];
 
     const handlePhotosSelect = (e) => {
         const files = Array.from(e.target.files);
@@ -192,6 +211,7 @@ const displaySteps = isEditing
         }
     };
 
+if (!recipe) return null;
     return (
         <div
             className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
@@ -201,7 +221,6 @@ const displaySteps = isEditing
                 onClick={(e) => e.stopPropagation()}>
                 <div className="overflow-y-auto p-6 sm:p-10 custom-scrollbar">
                     {isEditing ? (
-                        // ✏️ [수정 모드] 텍스트만 깔끔하게 수정!
                         <div className="space-y-4 animate-in fade-in">
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-400">
@@ -218,35 +237,56 @@ const displaySteps = isEditing
                                     className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
-{displaySteps.map((step, idx) => (
-    <div key={idx} className="flex gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs">
-            {idx + 1}
-        </span>
-        {isEditing ? (
-            <textarea
-                value={typeof step === "object" ? step.text : step}
-                onChange={(e) => {
-                    const fieldName = `steps_${currentLang}`; // 예: steps_ko
-                    const newSteps = [...(editData[fieldName] || [])];
-                    
-                    if (typeof newSteps[idx] === "object") {
-                        newSteps[idx] = { ...newSteps[idx], text: e.target.value };
-                    } else {
-                        newSteps[idx] = e.target.value;
-                    }
-                    
-                    setEditData({ ...editData, [fieldName]: newSteps });
-                }}
-                className="w-full p-2 bg-slate-50 rounded-lg text-sm min-h-[60px] outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
-        ) : (
-            <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                {typeof step === "object" ? step.text : step}
-            </p>
-        )}
-    </div>
-))}
+                            {displaySteps.map((step, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                    <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                                        {idx + 1}
+                                    </span>
+                                    {isEditing ? (
+                                        <textarea
+                                            value={
+                                                typeof step === "object"
+                                                    ? step.text
+                                                    : step
+                                            }
+                                            onChange={(e) => {
+                                                const fieldName = `steps_${currentLang}`; // 예: steps_ko
+                                                const newSteps = [
+                                                    ...(editData[fieldName] ||
+                                                        []),
+                                                ];
+
+                                                if (
+                                                    typeof newSteps[idx] ===
+                                                    "object"
+                                                ) {
+                                                    newSteps[idx] = {
+                                                        ...newSteps[idx],
+                                                        text: e.target.value,
+                                                    };
+                                                } else {
+                                                    newSteps[idx] =
+                                                        e.target.value;
+                                                }
+
+                                                setEditData({
+                                                    ...editData,
+                                                    [fieldName]: newSteps,
+                                                });
+                                            }}
+                                            className="w-full p-2 bg-slate-50 rounded-lg text-sm min-h-[60px] outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        />
+                                    ) : (
+                                        <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                                            {typeof step === "object"
+                                                ? step.text
+                                                : step}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
                             {/* 사진 변경 <input>이나 <img> 태그가 여기에 있다면 모두 삭제하세요! */}
 
                             <div className="space-y-2">
@@ -292,6 +332,51 @@ const displaySteps = isEditing
                             <h2 className="text-2xl sm:text-4xl font-black text-slate-800 mb-8 leading-tight break-words pr-8">
                                 {displayName}
                             </h2>
+                            <div className="mb-8">
+                                {!isEditing ? (
+                                    // 1. 보기 모드: 제목 아래에 예쁘게 표시
+                                    <p className="text-slate-500 text-sm md:text-base leading-relaxed italic px-2 border-l-4 border-indigo-500/10">
+                                        "{" "}
+                                        {editData?.[
+                                            `description_${currentLang}`
+                                        ] ||
+                                            recipe?.[
+                                                `description_${currentLang}`
+                                            ] ||
+                                            "No description available."}{" "}
+                                        "
+                                    </p>
+                                ) : (
+                                    // 2. 수정 모드: 제목 아래에서 바로 수정 가능하게
+                                    <div className="mt-4 space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                                            Description (
+                                            {currentLang === "ko"
+                                                ? "설명"
+                                                : currentLang === "de"
+                                                  ? "Beschreibung"
+                                                  : "Description"}
+                                            )
+                                        </label>
+                                        <textarea
+                                            value={
+                                                editData?.[
+                                                    `description_${currentLang}`
+                                                ] || ""
+                                            }
+                                            onChange={(e) =>
+                                                setEditData({
+                                                    ...editData,
+                                                    [`description_${currentLang}`]:
+                                                        e.target.value,
+                                                })
+                                            }
+                                            placeholder="간단한 레시피 설명을 입력하세요..."
+                                            className="w-full p-5 bg-slate-50 rounded-[2rem] text-sm min-h-[100px] border-none focus:ring-2 focus:ring-indigo-500/20 leading-relaxed"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                             <div className="space-y-10">
                                 <div>
                                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
@@ -303,44 +388,84 @@ const displaySteps = isEditing
                                               : "Ingredients & Search"}
                                     </h3>
                                     <div className="grid gap-3">
-                                        {displayIngredients.map((item, idx) => {
-                                            const itemName =
-                                                typeof item === "object"
-                                                    ? item.item || item.name
-                                                    : item;
-                                            return (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
-                                                    <span className="font-medium text-slate-700">
-                                                        {itemName}
-                                                    </span>
-                                                    <div className="flex gap-2">
-                                                        <a
-                                                            href={`${MARKET_URLS.rewe}${encodeURIComponent(itemName)}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-3 py-1.5 text-[11px] font-bold bg-[#CC0000] text-white rounded-lg hover:opacity-80 transition-opacity">
-                                                            REWE
-                                                        </a>
-                                                        <a
-                                                            href={`${MARKET_URLS.lidl}${encodeURIComponent(itemName)}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-3 py-1.5 text-[11px] font-bold bg-[#0050AA] text-white rounded-lg hover:opacity-80 transition-opacity">
-                                                            Lidl
-                                                        </a>
-                                                        <a
-                                                            href={`${MARKET_URLS.edeka}${encodeURIComponent(itemName)}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="px-3 py-1.5 text-[11px] font-bold bg-[#FFD400] text-[#003051] rounded-lg hover:opacity-80 transition-opacity">
-                                                            EDEKA
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                        {displayIngredients &&
+                                            displayIngredients.map(
+                                                (item, idx) => {
+                                                    // 재료가 객체 { item: "양파", amount: "1개" } 형태일 수도 있고 그냥 문자열일 수도 있음
+                                                    const itemName =
+                                                        typeof item === "object"
+                                                            ? item.item ||
+                                                              item.name
+                                                            : item;
+                                                    const itemAmount =
+                                                        typeof item === "object"
+                                                            ? item.amount
+                                                            : "";
+
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="font-bold text-slate-700">
+                                                                    {itemName}
+                                                                </span>
+                                                                {itemAmount && (
+                                                                    <span className="text-xs text-slate-400 font-medium bg-white px-2 py-1 rounded-lg">
+                                                                        {
+                                                                            itemAmount
+                                                                        }
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* 마트 링크 섹션 */}
+                                                            <div className="flex gap-2">
+                                                                {[
+                                                                    {
+                                                                        name: "REWE",
+                                                                        url: MARKET_URLS.rewe,
+                                                                        color: "bg-[#CC0000]",
+                                                                        textColor:
+                                                                            "text-white",
+                                                                    },
+                                                                    {
+                                                                        name: "Lidl",
+                                                                        url: MARKET_URLS.lidl,
+                                                                        color: "bg-[#0050AA]",
+                                                                        textColor:
+                                                                            "text-white",
+                                                                    },
+                                                                    {
+                                                                        name: "EDEKA",
+                                                                        url: MARKET_URLS.edeka,
+                                                                        color: "bg-[#FFD400]",
+                                                                        textColor:
+                                                                            "text-[#003051]",
+                                                                    },
+                                                                ].map(
+                                                                    (
+                                                                        market,
+                                                                    ) => (
+                                                                        <a
+                                                                            key={
+                                                                                market.name
+                                                                            }
+                                                                            href={`${market.url}${encodeURIComponent(itemName)}`}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className={`px-3 py-1.5 text-[10px] font-black ${market.color} ${market.textColor} rounded-lg hover:scale-105 transition-transform shadow-sm`}>
+                                                                            {
+                                                                                market.name
+                                                                            }
+                                                                        </a>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                },
+                                            )}
                                     </div>
                                 </div>
 
