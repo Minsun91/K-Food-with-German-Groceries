@@ -45,7 +45,6 @@ const RecipeModal = ({
 
     useEffect(() => {
     if (recipe) {
-        console.log("원본 레시피 데이터:", recipe);
         setEditData({
             ...recipe,
             steps_ko: recipe.steps_ko || [],
