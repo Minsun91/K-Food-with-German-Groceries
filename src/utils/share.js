@@ -172,7 +172,7 @@ export const shareToKakao = (data, currentLang = 'ko') => {
         const savings = (data.savings && data.savings !== "0.00") ? ` (${data.savings}€ 절약!)` : "";
         description = currentLang === 'de' 
             ? `Sparen Sie ${data.savings || '0.00'}€ bei ${name}! 💸 Now or Never!` 
-            : `${name} 최저가 ${data.price || '0.00'}€!${savings}\n지금 확인하고 장바구니 무게를 줄이세요! 🛒`;
+            : `${name} 최저가 ${data.price || '0.00'}€!${savings}\n지금 확인해보세요! 🛒`;
     }
 
     window.Kakao.Share.sendDefault({
