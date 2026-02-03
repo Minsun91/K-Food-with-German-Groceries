@@ -17,13 +17,18 @@ const DELIVERY_INFO = [
 ];
 
 const MART_NAMES_EN = {
-    "한독몰": "Handok Mall", "코켓": "Kocket", "와이마트": "Y-Mart",
-    "아마존": "Amazon", "다와요": "Dawayo", "K-shop": "K-shop",
-    "JoyBuy": "JoyBuy", "GoAsia": "GoAsia"
+    한독몰: "Handok Mall",
+    코켓: "Kocket",
+    와이마트: "Y-Mart",
+    아마존: "Amazon",
+    다와요: "Dawayo",
+    "K-shop": "K-shop",
+    JoyBuy: "JoyBuy",
+    GoAsia: "GoAsia",
 };
 
 const PriceComparison = ({ currentLang, onUpdateData }) => {
-    const [categoryTab, setCategoryTab] = useState('food'); // 'food' 또는 'beauty'
+    const [categoryTab, setCategoryTab] = useState("food"); // 'food' 또는 'beauty'
     const [prices, setPrices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -33,19 +38,26 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
     // Firebase 데이터 로드
     useEffect(() => {
-        const unsubscribe = onSnapshot(doc(db, "prices", "latest"), (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                const rawData = data.data || [];
-                const cleanData = rawData.filter(p => p.item && p.price && p.price !== "0");
-                setPrices(cleanData);
-                if (data.lastGlobalUpdate && onUpdateData) {
-                    const timeString = new Date(data.lastGlobalUpdate).toLocaleString();
-                    onUpdateData(timeString);
+        const unsubscribe = onSnapshot(
+            doc(db, "prices", "latest"),
+            (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    const rawData = data.data || [];
+                    const cleanData = rawData.filter(
+                        (p) => p.item && p.price && p.price !== "0",
+                    );
+                    setPrices(cleanData);
+                    if (data.lastGlobalUpdate && onUpdateData) {
+                        const timeString = new Date(
+                            data.lastGlobalUpdate,
+                        ).toLocaleString();
+                        onUpdateData(timeString);
+                    }
                 }
-            }
-            setLoading(false);
-        });
+                setLoading(false);
+            },
+        );
         return () => unsubscribe();
     }, [onUpdateData]);
 
@@ -53,17 +65,34 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     // 검색어 자동 스크롤 로직 (기존 유지)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const searchQuery = params.get('search');
+        const searchQuery = params.get("search");
         if (searchQuery && !hasAutoScrolled && prices.length > 0) {
             setSearchTerm(decodeURIComponent(searchQuery));
             setTimeout(() => {
-                const searchElement = document.querySelector('.search-bar-anchor');
-                if (searchElement) searchElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const searchElement =
+                    document.querySelector(".search-bar-anchor");
+                if (searchElement)
+                    searchElement.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                    });
                 setHasAutoScrolled(true);
             }, 800);
         }
     }, [prices, hasAutoScrolled]);
 
+    const currentDelivery = useMemo(() => {
+        if (!prices || prices.length === 0) return { mart: '-', price: 0 };
+        
+        // 배송비 정보가 있는 품목들만 추려서 가장 낮은 배송비 찾기
+        const deliverySpeeds = prices
+            .filter(p => p.deliveryFee !== undefined)
+            .sort((a, b) => a.deliveryFee - b.deliveryFee);
+    
+        return deliverySpeeds.length > 0 
+            ? { mart: deliverySpeeds[0].mart, price: deliverySpeeds[0].deliveryFee }
+            : { mart: '기본', price: 5.99 }; // 기본값
+    }, [prices]);
     // 🌟 핵심: 데이터 필터링 및 [식품/뷰티] 자동 분류 로직
     const filteredAndGroupedData = useMemo(() => {
         const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
@@ -133,48 +162,74 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     }, [prices, searchTerm, categoryTab, selectedSubCategory]);
 
 
-    if (loading) return <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse">Lade Preise...</div>;
-    const searchTexts = langConfig[currentLang]?.search || langConfig['ko'].search;
+    if (loading)
+        return (
+            <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse">
+                Lade Preise...
+            </div>
+        );
+    const searchTexts =
+        langConfig[currentLang]?.search || langConfig["ko"].search;
 
     return (
         <div className="w-full bg-white animate-in fade-in duration-500">
             {/* 🚚 1. 배송비 정보 상단 바 */}
             <div className="w-full bg-white py-3 border-b border-slate-100 overflow-hidden relative group">
                 <div className="flex whitespace-nowrap animate-marquee group-hover:pause">
-                    {[...DELIVERY_INFO, ...DELIVERY_INFO].map((info, i) => {
-                        // 마트별 색상 매핑
-                        const getDotColor = (name) => {
-                            switch (name) {
-                                case '다와요': return 'bg-red-350';
-                                case 'Y-Mart': return 'bg-blue-450';
-                                case '한독몰': return 'bg-pink-500';
-                                case 'Kocket': return 'bg-indigo-600';
-                                case 'K-shop': return 'bg-blue-500';
-                                case 'JoyBuy': return 'bg-red-500';
-                                case 'GoAsia': return 'bg-red-700';
-                                default: return 'bg-slate-400';
-                            }
-                        };
+                    {currentDelivery.length > 0 &&
+                        [...currentDelivery, ...currentDelivery].map(
+                            (info, i) => {
+                                const getDotColor = (name) => {
+                                    if (!name) return "bg-slate-400";
+                                    const lowerName = name.toLowerCase();
+                                    if (
+                                        lowerName.includes("다와요") ||
+                                        lowerName.includes("dawayo")
+                                    )
+                                        return "bg-red-400";
+                                    if (lowerName.includes("y-mart"))
+                                        return "bg-blue-400";
+                                    if (
+                                        lowerName.includes("한독몰") ||
+                                        lowerName.includes("handok")
+                                    )
+                                        return "bg-pink-500";
+                                    if (lowerName.includes("kocket"))
+                                        return "bg-indigo-600";
+                                    if (lowerName.includes("k-shop"))
+                                        return "bg-blue-500";
+                                    if (lowerName.includes("joybuy"))
+                                        return "bg-red-500";
+                                    if (lowerName.includes("goasia"))
+                                        return "bg-red-700";
+                                    return "bg-slate-400";
+                                }; // 마트별 색상 매핑
 
-                        return (
-                            <div key={i} className="flex items-center gap-2 mx-6 shrink-0">
-                                {/* 마트별 고유 컬러 점 */}
-                                <span className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`} />
-
-                                <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
-                                    {info.name}
-                                </span>
-                                <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
-                                    {info.info}
-                                </span>
-                                <span className="text-slate-200 text-xs ml-4">|</span>
-                            </div>
-                        );
-                    })}
+                                return (
+                                    <div
+                                        key={i}
+                                        className="flex items-center gap-2 mx-6 shrink-0">
+                                        <span
+                                            className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`}
+                                        />
+                                        <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                                            {info.name}
+                                        </span>
+                                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
+                                            {info.info}
+                                        </span>
+                                        <span className="text-slate-200 text-xs ml-4">
+                                            |
+                                        </span>
+                                    </div>
+                                );
+                            },
+                        )}
                 </div>
 
-                <style dangerouslySetInnerHTML={{
-                    __html: `
+                <style
+                    dangerouslySetInnerHTML={{
+                        __html: `
         @keyframes marquee {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
@@ -186,7 +241,9 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
         .group:hover .animate-marquee {
             animation-play-state: paused;
         }
-    `}} />
+    `,
+                    }}
+                />
             </div>
 
             {/* 💄 2. [식품 / 뷰티] 카테고리 전환 탭 */}
@@ -272,34 +329,37 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
             {/* 📦 4. 상품 리스트 (기존 렌더링 로직 유지) */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-
                 {Object.keys(filteredAndGroupedData).length > 0 ? (
-
                     Object.keys(filteredAndGroupedData)
 
                         .sort((a, b) => {
-
                             // 1. '기타' 카테고리는 무조건 맨 아래로
 
-                            if (a === '기타') return 1;
+                            if (a === "기타") return 1;
 
-                            if (b === '기타') return -1;
-
-
+                            if (b === "기타") return -1;
 
                             const itemsA = filteredAndGroupedData[a];
 
                             const itemsB = filteredAndGroupedData[b];
 
-
-
                             // 2. 각 카테고리에서 가장 최근 업데이트된 시간을 가져옴
 
-                            const timeA = new Date(Math.max(...itemsA.map(i => new Date(i.updatedAt || 0)))).getTime();
+                            const timeA = new Date(
+                                Math.max(
+                                    ...itemsA.map(
+                                        (i) => new Date(i.updatedAt || 0),
+                                    ),
+                                ),
+                            ).getTime();
 
-                            const timeB = new Date(Math.max(...itemsB.map(i => new Date(i.updatedAt || 0)))).getTime();
-
-
+                            const timeB = new Date(
+                                Math.max(
+                                    ...itemsB.map(
+                                        (i) => new Date(i.updatedAt || 0),
+                                    ),
+                                ),
+                            ).getTime();
 
                             // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
 
@@ -310,22 +370,35 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                             const items = filteredAndGroupedData[category];
                             const firstItem = items[0];
 
-
-                            // 🌟 NEW 배지 조건 수정: 
-                            const latestUpdate = Math.max(...items.map(i => new Date(i.updatedAt || 0).getTime()));
-                            const isNew = (Date.now() - latestUpdate) < (48 * 60 * 60 * 1000); // 48시간 기준
+                            // 🌟 NEW 배지 조건 수정:
+                            const latestUpdate = Math.max(
+                                ...items.map((i) =>
+                                    new Date(i.updatedAt || 0).getTime(),
+                                ),
+                            );
+                            const isNew =
+                                Date.now() - latestUpdate < 48 * 60 * 60 * 1000; // 48시간 기준
                             const shareData = {
-                                name: category,                       // 품목 카테고리 명 (예: 맥심 모카골드)
-    price: firstItem.minPrice || "0.00",  // 최저가
-    // 절약 금액: 최고가 - 최저가 (이미지의 "7.00€ 절약" 로직)
-    savings: (firstItem.maxPrice && firstItem.minPrice) 
-        ? (firstItem.maxPrice - firstItem.minPrice).toFixed(2) 
-        : "0.00",
-    bestStore: firstItem.bestStore || firstItem.mart || "마트"
+                                name: category, // 품목 카테고리 명 (예: 맥심 모카골드)
+                                price: firstItem.minPrice || "0.00", // 최저가
+                                // 절약 금액: 최고가 - 최저가 (이미지의 "7.00€ 절약" 로직)
+                                savings:
+                                    firstItem.maxPrice && firstItem.minPrice
+                                        ? (
+                                              firstItem.maxPrice -
+                                              firstItem.minPrice
+                                          ).toFixed(2)
+                                        : "0.00",
+                                bestStore:
+                                    firstItem.bestStore ||
+                                    firstItem.mart ||
+                                    "마트",
                             };
 
                             return (
-                                <div key={category} className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
+                                <div
+                                    key={category}
+                                    className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
                                     <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
                                         <div className="flex items-center gap-2">
                                             <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
@@ -341,111 +414,149 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                                             </span>
                                         </div>
 
-
                                         {/* 🔗 상단으로 옮겨진 깔끔한 공유 버튼 */}
 
                                         <div className="flex gap-1.5">
-                                        <button onClick={() => shareToKakao(shareData, currentLang)} className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity">카톡</button>
-                                           <button onClick={() => shareToWhatsApp(shareData, currentLang)} className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity">WA</button>
+                                            <button
+                                                onClick={() =>
+                                                    shareToKakao(
+                                                        shareData,
+                                                        currentLang,
+                                                    )
+                                                }
+                                                className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity">
+                                                카톡
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    shareToWhatsApp(
+                                                        shareData,
+                                                        currentLang,
+                                                    )
+                                                }
+                                                className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity">
+                                                WA
+                                            </button>
                                         </div>
                                     </div>
 
-
                                     {/* 🛒 상품 목록 */}
                                     <div className="divide-y divide-slate-100/50">
-                                        {filteredAndGroupedData[category].map((p, idx) => {
-                                            const currentPrice = parseFloat(p.price) || 0;
-                                            const prevPrice = p.prevPrice ? parseFloat(p.prevPrice) : null;
+                                        {filteredAndGroupedData[category].map(
+                                            (p, idx) => {
+                                                const currentPrice =
+                                                    parseFloat(p.price) || 0;
+                                                const prevPrice = p.prevPrice
+                                                    ? parseFloat(p.prevPrice)
+                                                    : null;
 
-                                            return (
-                                                <a key={idx} href={p.link} target="_blank" rel="noopener noreferrer" onClick={() => {
-                                                    window.gtag?.('event', 'click_amazon_product', {
-                                                        'product_name': p.item,      // 예: "고추장", "참기름"
+                                                return (
+                                                    <a
+                                                        key={idx}
+                                                        href={p.link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={() => {
+                                                            window.gtag?.(
+                                                                "event",
+                                                                "click_amazon_product",
+                                                                {
+                                                                    product_name:
+                                                                        p.item, // 예: "고추장", "참기름"
 
-                                                        'mart_name': p.mart,         // 예: "Amazon", "K-Shop"
+                                                                    mart_name:
+                                                                        p.mart, // 예: "Amazon", "K-Shop"
 
-                                                        'price': currentPrice,       // 클릭 당시 가격
+                                                                    price: currentPrice, // 클릭 당시 가격
 
-                                                        'category': category         // 현재 보고 있는 카테고리
+                                                                    category:
+                                                                        category, // 현재 보고 있는 카테고리
+                                                                },
+                                                            );
+                                                        }}
+                                                        className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 ? "bg-amber-50/20" : "bg-white"}`}>
+                                                        <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
+                                                                {p.mart}
+                                                            </span>
 
-                                                    });
-
-                                                }}
-
-                                                    className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 ? 'bg-amber-50/20' : 'bg-white'}`}
-
-                                                >
-
-                                                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
-
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">{p.mart}</span>
-
-                                                        <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate leading-snug">{p.item}</span>
-
-                                                    </div>
-
-                                                    <div className="flex items-center gap-3 shrink-0">
-
-                                                        <div className="text-right flex flex-col items-end">
-
-                                                            <div className="flex items-center gap-1">
-
-                                                                <span className={`text-lg font-black ${idx === 0 ? 'text-amber-600' : 'text-slate-800'}`}>€{currentPrice.toFixed(2)}</span>
-
-                                                                {idx === 0 && <span className="text-sm">🏆</span>}
-
-                                                            </div>
-
-                                                            {prevPrice && Math.abs(currentPrice - prevPrice) > 0.001 && (
-
-                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? 'text-green-600 bg-green-50' : 'text-rose-600 bg-rose-50'}`}>
-
-                                                                    {currentPrice < prevPrice ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}` : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
-
-                                                                </span>
-
-                                                            )}
-
+                                                            <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate leading-snug">
+                                                                {p.item}
+                                                            </span>
                                                         </div>
 
-                                                        <span className="text-slate-300 group-hover:text-indigo-400">
+                                                        <div className="flex items-center gap-3 shrink-0">
+                                                            <div className="text-right flex flex-col items-end">
+                                                                <div className="flex items-center gap-1">
+                                                                    <span
+                                                                        className={`text-lg font-black ${idx === 0 ? "text-amber-600" : "text-slate-800"}`}>
+                                                                        €
+                                                                        {currentPrice.toFixed(
+                                                                            2,
+                                                                        )}
+                                                                    </span>
 
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17l9.2-9.2M17 17V7H7" /></svg>
+                                                                    {idx ===
+                                                                        0 && (
+                                                                        <span className="text-sm">
+                                                                            🏆
+                                                                        </span>
+                                                                    )}
+                                                                </div>
 
-                                                        </span>
+                                                                {prevPrice &&
+                                                                    Math.abs(
+                                                                        currentPrice -
+                                                                            prevPrice,
+                                                                    ) >
+                                                                        0.001 && (
+                                                                        <span
+                                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? "text-green-600 bg-green-50" : "text-rose-600 bg-rose-50"}`}>
+                                                                            {currentPrice <
+                                                                            prevPrice
+                                                                                ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}`
+                                                                                : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
+                                                                        </span>
+                                                                    )}
+                                                            </div>
 
-                                                    </div>
-
-                                                </a>
-
-                                            );
-
-                                        })}
-
+                                                            <span className="text-slate-300 group-hover:text-indigo-400">
+                                                                <svg
+                                                                    width="14"
+                                                                    height="14"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="3"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round">
+                                                                    <path d="M7 17l9.2-9.2M17 17V7H7" />
+                                                                </svg>
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                );
+                                            },
+                                        )}
                                     </div>
 
                                    
 
                                 </div>
-
                             );
-
                         })
-
                 ) : (
-
                     <div className="py-20 text-center text-slate-300 font-bold italic">
-
-                        {searchTerm ? "검색 결과가 없습니다 🥲" : "데이터를 불러오는 중입니다..."}
-
+                        {searchTerm
+                            ? "검색 결과가 없습니다 🥲"
+                            : "데이터를 불러오는 중입니다..."}
                     </div>
-
                 )}
-
             </div>
 
-            <style dangerouslySetInnerHTML={{
-                __html: `
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
                 @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
                 .animate-marquee { animation: marquee 20s linear infinite; }
                 .custom-scrollbar::-webkit-scrollbar { width: 5px; }

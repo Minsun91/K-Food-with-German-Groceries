@@ -65,13 +65,15 @@ const Community = ({ currentLang }) => {
         if (!user) return alert("로그인이 필요합니다!");
         if (!newPost.trim()) return;
     
-        try {
-            await addDoc(collection(db, "posts"), {
-                content: newPost,
-                authorName: user.displayName,
-                authorId: user.uid,
-                createdAt: serverTimestamp(),
-            });
+try {
+        await addDoc(collection(db, "posts"), {
+            content: newPost,
+            authorName: user.displayName,
+            authorId: user.uid,
+            authorPhoto: user.photoURL, // 프로필 이미지도 저장해야 목록에 뜹니다!
+            imageUrl: "", // 일반 글은 빈값, 사진 인증글은 여기에 URL이 들어감
+            createdAt: serverTimestamp(),
+        });
     
             // 📊 구글 애널리틱스 이벤트 전송
             if (window.gtag) {
@@ -137,7 +139,21 @@ const Community = ({ currentLang }) => {
             {/* 게시글 목록 (날짜 포맷도 언어에 맞게) */}
 <div className="w-full space-y-6">
                 {posts.map(post => (
-                    <div key={post.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+        <div key={post.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+            
+            {/* 📸 여러 장의 사진이 있을 경우 (그리드 또는 리스트) */}
+            {post.imageUrls && post.imageUrls.length > 0 && (
+                <div className={`mb-4 -mx-6 -mt-6 grid gap-1 ${post.imageUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {post.imageUrls.map((url, index) => (
+                        <img 
+                            key={index}
+                            src={url} 
+                            alt={`Post image ${index}`} 
+                            className="w-full h-64 object-cover hover:opacity-95 transition-opacity"
+                        />
+                    ))}
+                </div>
+            )}
                         <p className="text-slate-700 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{post.content}</p>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
