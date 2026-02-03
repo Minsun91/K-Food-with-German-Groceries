@@ -145,3 +145,27 @@ export const DELIVERY_INFO = {
         { name: "GoAsia", info: "Gratis ab 39€" },
     ]
 };
+
+export const FOOD_CATEGORIES = {
+    ko: [
+        { id: 'all', label: '전체', emoji: '🍱' },
+        { id: 'fresh', label: '신선·냉동', emoji: '❄️' },
+        { id: 'grain', label: '쌀·면·가루', emoji: '🌾' },
+        { id: 'sauce', label: '양념·소스', emoji: '🍯' },
+        { id: 'snack', label: '간식·음료', emoji: '🥤' }
+    ],
+    en: [
+        { id: 'all', label: 'All', emoji: '🍱' },
+        { id: 'fresh', label: 'Fresh/Frozen', emoji: '❄️' },
+        { id: 'grain', label: 'Grain/Flour', emoji: '🌾' },
+        { id: 'sauce', label: 'Sauce/Oil', emoji: '🍯' },
+        { id: 'snack', label: 'Snack/Drink', emoji: '🥤' }
+    ],
+    de: [
+        { id: 'all', label: 'Alle', emoji: '🍱' },
+        { id: 'fresh', label: 'Frisch & Tiefkühl', emoji: '❄️' },
+        { id: 'grain', label: 'Reis & Nudeln', emoji: '🌾' },
+        { id: 'sauce', label: 'Saucen & Gewürze', emoji: '🍯' },
+        { id: 'snack', label: 'Snacks & Getränke', emoji: '🥤' }
+    ]
+};

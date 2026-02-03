@@ -2,19 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../../utils/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { shareToKakao, shareToWhatsApp } from '../../utils/share';
-import { langConfig } from '../../constants/langConfig';
 import ReportPriceForm from '../price/ReportPriceForm';
-
-// 🚚 배송비 정보 데이터
-const DELIVERY_INFO = [
-    { name: "다와요", info: "60€↑ 무료" },
-    { name: "Y-Mart", info: "70€↑ 무료 (최소 30€)" },
-    { name: "한독몰", info: "70€↑ 무료 (픽업 5%↓)" },
-    { name: "Kocket", info: "49€↑ 무료" },
-    { name: "K-shop", info: "70€↑ 무료 (냉동 제품 4.99€)" },
-    { name: "JoyBuy", info: "Same day delivery €3.99" },
-    { name: "GoAsia", info: "39€↑ 무료" },
-];
+import { langConfig, FOOD_CATEGORIES, DELIVERY_INFO } from '../../constants/langConfig';
 
 const MART_NAMES_EN = {
     한독몰: "Handok Mall",
@@ -279,13 +268,8 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 {categoryTab === 'food' && (
     <div className="px-4 md:px-6 mt-4 overflow-x-auto no-scrollbar flex justify-center">
         <div className="flex gap-2 pb-2">
-            {[
-                { id: 'all', label: '전체', emoji: '🍱' },
-                { id: 'fresh', label: '신선·냉동', emoji: '❄️' },
-                { id: 'grain', label: '쌀·면·가루', emoji: '🌾' },
-                { id: 'sauce', label: '양념·소스', emoji: '🍯' },
-                { id: 'snack', label: '간식·음료', emoji: '🥤' }
-            ].map((cat) => (
+            {/* currentLang이 'de'일 때도 이제 FOOD_CATEGORIES.de 가 있으니 잘 나옵니다! */}
+            {(FOOD_CATEGORIES[currentLang] || FOOD_CATEGORIES.ko).map((cat) => (
                 <button
                     key={cat.id}
                     onClick={() => setSelectedSubCategory(cat.id)}
@@ -302,10 +286,10 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     </div>
 )}
 
-{/* 🔍 3. 검색바 (이제 독립적으로 깔끔하게) */}
+{/* 🔍 3. 검색바 (여기도 currentDelivery 에러 안 나게 처리) */}
 <div className="px-4 md:px-6 py-4 search-bar-anchor">
     <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
             🔍
         </div>
         <input
@@ -314,16 +298,11 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={
                 categoryTab === 'food' 
-                    ? (langConfig[currentLang]?.foodPlaceholder || "어떤 음식을 찾으세요?")
-                    : (langConfig[currentLang]?.beautyPlaceholder || "어떤 뷰티템을 찾으세요?")
+                    ? (currentLang === 'ko' ? "식품 검색 (예: 신라면, 김치)" : "Search food...")
+                    : (currentLang === 'ko' ? "뷰티 검색 (예: 리들샷, 선크림)" : "Search beauty...")
             }
-            className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm font-medium text-slate-700"
+            className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 outline-none transition-all text-sm font-medium"
         />
-        {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-300">
-                <span className="bg-slate-100 rounded-full p-1 text-[10px]">✕</span>
-            </button>
-        )}
     </div>
 </div>
 
