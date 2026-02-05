@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../utils/firebase'
 
 const ReportPriceForm = ({ currentLang }) => {
     // 1. 번역 텍스트 설정
@@ -44,13 +46,32 @@ const ReportPriceForm = ({ currentLang }) => {
         })
     });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        alert(t.alert);
-        console.log("Report Data:", formData);
-        setFormData({ ...formData, item: '', price: '', store: '', url: '' });
+        
+        // 유효성 검사 (가격이 비어있으면 중단)
+        if (!formData.item || !formData.price) return;
+    
+        try {
+            // 'reports'라는 컬렉션에 데이터 저장
+            await addDoc(collection(db, "reports"), {
+                item: formData.item,
+                price: Number(formData.price), // 숫자로 저장하는 게 나중에 계산하기 좋아요!
+                store: formData.store,
+                url: formData.url,
+                createdAt: serverTimestamp(), // 서버 시간 저장
+                lang: currentLang // 어떤 언어에서 제보됐는지도 저장하면 꿀팁!
+            });
+    
+            alert(t.alert);
+            // 폼 초기화
+            setFormData({ ...formData, item: '', price: '', store: '', url: '' });
+        } catch (error) {
+            console.error("데이터 저장 중 오류 발생:", error);
+            alert("제보에 실패했습니다. 다시 시도해주세요.");
+        }
     };
-
+    
     return (
         <div className="w-full max-w-4xl mx-auto mt-12 mb-20 px-4">
             <div className="bg-[#FFFDF9] border-2 border-indigo-100 rounded-[2.5rem] p-8 md:p-12 shadow-sm relative overflow-hidden text-left">

@@ -3,6 +3,7 @@ import { db, auth } from '../../utils/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { loginWithGoogle, logout } from '../../utils/auth';
+import CommentSection from './CommentSection';
 
 const Community = ({ currentLang }) => {
     const [posts, setPosts] = useState([]);
@@ -64,17 +65,17 @@ const Community = ({ currentLang }) => {
         e.preventDefault();
         if (!user) return alert("로그인이 필요합니다!");
         if (!newPost.trim()) return;
-    
-try {
-        await addDoc(collection(db, "posts"), {
-            content: newPost,
-            authorName: user.displayName,
-            authorId: user.uid,
-            authorPhoto: user.photoURL, // 프로필 이미지도 저장해야 목록에 뜹니다!
-            imageUrl: "", // 일반 글은 빈값, 사진 인증글은 여기에 URL이 들어감
-            createdAt: serverTimestamp(),
-        });
-    
+
+        try {
+            await addDoc(collection(db, "posts"), {
+                content: newPost,
+                authorName: user.displayName,
+                authorId: user.uid,
+                authorPhoto: user.photoURL, // 프로필 이미지도 저장해야 목록에 뜹니다!
+                imageUrl: "", // 일반 글은 빈값, 사진 인증글은 여기에 URL이 들어감
+                createdAt: serverTimestamp(),
+            });
+
             // 📊 구글 애널리틱스 이벤트 전송
             if (window.gtag) {
                 window.gtag('event', 'post_create', {
@@ -83,7 +84,7 @@ try {
                     'content_length': newPost.length
                 });
             }
-    
+
             setNewPost("");
             alert("글이 성공적으로 등록되었습니다! 🎉");
         } catch (error) {
@@ -93,9 +94,9 @@ try {
     const t = translations[currentLang] || translations['ko'];
 
     return (
-<div className="max-w-3xl mx-auto pt-10 pb-24 px-6 space-y-12 animate-in fade-in duration-700 flex flex-col">
-                {/* 프로필 영역 */}
-<div className="w-full flex justify-between items-center bg-slate-50/50 p-5 rounded-[2rem] border border-slate-100/50 backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto pt-10 pb-24 px-6 space-y-12 animate-in fade-in duration-700 flex flex-col">
+            {/* 프로필 영역 */}
+            <div className="w-full flex justify-between items-center bg-slate-50/50 p-5 rounded-[2rem] border border-slate-100/50 backdrop-blur-sm">
                 {user ? (
                     <div className="flex items-center gap-3">
                         <img src={user.photoURL} alt="profile" className="w-10 h-10 rounded-full border-2 border-white" />
@@ -118,55 +119,61 @@ try {
             </div>
 
             {/* 글쓰기 폼 - 디자인 복구 버전 */}
-<form onSubmit={handleSubmit} className="w-full relative bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/20">
-    <textarea 
-        value={newPost}
-        onChange={(e) => setNewPost(e.target.value)}
-        disabled={!user}
-        placeholder={user ? "오늘 마트 꿀템은 무엇인가요? (Was hast du heute gefunden?)" : "로그인 후 글을 작성할 수 있습니다."}
-        className="w-full p-8 bg-transparent min-h-[160px] outline-none text-slate-700 font-medium placeholder:text-slate-300 resize-none text-base"
-    />
-    {user && (
-        <div className="absolute bottom-4 right-6 flex items-center gap-3">
-            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Share story</span>
-            <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
-                POSTEN
-            </button>
-        </div>
-    )}
-</form>
+            <form onSubmit={handleSubmit} className="w-full relative bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden transition-all focus-within:ring-2 focus-within:ring-indigo-500/20">
+                <textarea
+                    value={newPost}
+                    onChange={(e) => setNewPost(e.target.value)}
+                    disabled={!user}
+                    placeholder={user ? "오늘 마트 꿀템은 무엇인가요? (Was hast du heute gefunden?)" : "로그인 후 글을 작성할 수 있습니다."}
+                    className="w-full p-8 bg-transparent min-h-[160px] outline-none text-slate-700 font-medium placeholder:text-slate-300 resize-none text-base"
+                />
+                {user && (
+                    <div className="absolute bottom-4 right-6 flex items-center gap-3">
+                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Share story</span>
+                        <button className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg active:scale-95">
+                            POSTEN
+                        </button>
+                    </div>
+                )}
+            </form>
 
             {/* 게시글 목록 (날짜 포맷도 언어에 맞게) */}
+            {/* 게시글 목록 반복문 부분 */}
 <div className="w-full space-y-6">
-                {posts.map(post => (
+    {posts.map(post => (
         <div key={post.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
             
-            {/* 📸 여러 장의 사진이 있을 경우 (그리드 또는 리스트) */}
+            {/* 1. 사진 영역 (기존 코드) */}
             {post.imageUrls && post.imageUrls.length > 0 && (
                 <div className={`mb-4 -mx-6 -mt-6 grid gap-1 ${post.imageUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {post.imageUrls.map((url, index) => (
-                        <img 
-                            key={index}
-                            src={url} 
-                            alt={`Post image ${index}`} 
-                            className="w-full h-64 object-cover hover:opacity-95 transition-opacity"
-                        />
+                        <img key={index} src={url} alt="" className="w-full h-64 object-cover" />
                     ))}
                 </div>
             )}
-                        <p className="text-slate-700 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{post.content}</p>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <img src={post.authorPhoto} className="w-5 h-5 rounded-full" alt="" />
-                                <span className="text-[11px] font-bold text-slate-500">{post.authorName}</span>
-                            </div>
-                            <span className="text-[10px] text-slate-300 font-medium">
+
+            {/* 2. 본문 내용 (기존 코드) */}
+            <p className="text-slate-700 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{post.content}</p>
+
+            {/* 3. 작성자 및 날짜 정보 (기존 코드) */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <img src={post.authorPhoto} className="w-5 h-5 rounded-full" alt="" />
+                    <span className="text-[11px] font-bold text-slate-500">{post.authorName}</span>
+                </div>
+                <span className="text-[10px] text-slate-300 font-medium">
+
                                 {post.createdAt?.toDate().toLocaleDateString(currentLang === 'ko' ? 'ko-KR' : (currentLang === 'de' ? 'de-DE' : 'en-US'))}
+
                             </span>
-                        </div>
-                    </div>
-                ))}
             </div>
+
+            {/* 4. 🔥 여기에 댓글 컴포넌트를 넣으세요! */}
+            <CommentSection postId={post.id} user={user} currentLang={currentLang} />
+
+        </div> // 게시글 카드 끝
+    ))}
+</div>
         </div>
     );
 };
