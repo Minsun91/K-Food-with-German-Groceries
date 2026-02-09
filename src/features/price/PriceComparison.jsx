@@ -54,21 +54,42 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     // 검색어 자동 스크롤 로직 (기존 유지)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const searchQuery = params.get("search");
+        const tabParam = params.get('tab');       // 'beauty' 또는 'food'
+        const searchQuery = params.get("search"); // 예: "달바"
+        const langParam = params.get('lang');
+    
+        // 🌟 [STEP 1] 탭 전환을 최우선으로 실행 (뷰티 탭으로 먼저 가야 뷰티 상품이 보임!)
+        if (tabParam && categoryTab !== tabParam) {
+            setCategoryTab(tabParam); 
+            // 탭이 바뀌면 리렌더링이 일어나므로, 검색 로직은 다음 cycle에서 prices와 함께 체크됨
+        }
+    
+        if (langParam) {
+            // setCurrentLang(langParam); // 언어 설정 로직이 있다면 추가
+        }
+    
+        // 🌟 [STEP 2] 탭이 올바르게 설정된 상태에서 검색어 처리
         if (searchQuery && !hasAutoScrolled && prices.length > 0) {
-            setSearchTerm(decodeURIComponent(searchQuery));
-            setTimeout(() => {
-                const searchElement =
-                    document.querySelector(".search-bar-anchor");
-                if (searchElement)
+            // 검색어에서 혹시 모를 이모지나 공백 제거
+            const cleanQuery = decodeURIComponent(searchQuery).replace(/[💄🛒🍜🔥🥬✨]/g, '').trim();
+            
+            setSearchTerm(cleanQuery);
+            
+            // 검색어가 적용되어 화면이 바뀔 시간을 줌
+            const scrollTimeout = setTimeout(() => {
+                const searchElement = document.querySelector(".search-bar-anchor");
+                if (searchElement) {
                     searchElement.scrollIntoView({
                         behavior: "smooth",
                         block: "center",
                     });
+                }
                 setHasAutoScrolled(true);
-            }, 800);
+            }, 1000); // 탭 전환 시간을 고려해 조금 더 넉넉하게 설정
+    
+            return () => clearTimeout(scrollTimeout);
         }
-    }, [prices, hasAutoScrolled]);
+    }, [prices, hasAutoScrolled, categoryTab]); // categoryTab을 의존성에 추가하여 탭 변경 후 다시 실행되게 함
 
     const currentDelivery = useMemo(() => {
         if (!prices || prices.length === 0) return { mart: '-', price: 0 };

@@ -95,10 +95,10 @@ export const shareToWhatsApp = (data, currentLang = 'ko') => {
     const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
 
     // 3. 변수 먼저 선언 (에러 방지 핵심!)
+    const cleanName = name.replace(/[💄🛒🍜🔥🥬✨]/g, '').trim();
     const shareUrl = isRecipe 
-        ? `${window.location.origin}/recipe?recipeId=${data.id}&lang=${currentLang}`
-        : `${window.location.origin}/price?search=${encodeURIComponent(name)}&lang=${currentLang}`;
-
+    ? `${baseUrl}/recipe?recipeId=${data.id}&lang=${currentLang}`
+    : `${baseUrl}/price?search=${encodeURIComponent(cleanName)}&lang=${currentLang}&tab=${isBeauty ? 'beauty' : 'food'}`;
     let msgText = "";
 
     if (isRecipe) {
@@ -133,9 +133,6 @@ export const shareToWhatsApp = (data, currentLang = 'ko') => {
 export const shareToKakao = (data, currentLang = 'ko') => {
     const kakaoKey = "c78231a56667f351595ae8b2d87b2152";
     
-    // 1. 모든 언어 필드 체크 (이름 누락 방지 - 왓츠앱과 통일)
-    const name = data[`name_${currentLang}`] || data.name_ko || data.name_en || data.name_de || data.name || "K-Food";
-
     if (!data || !window.Kakao) {
         console.error("Kakao SDK 미로드 또는 데이터 없음");
         return;
@@ -145,48 +142,32 @@ export const shareToKakao = (data, currentLang = 'ko') => {
         window.Kakao.init(kakaoKey);
     }
 
-    // 2. 레시피 판별 로직
-    const isRecipe = data.id && typeof data.id === 'string' && data.id.length > 5;
-        
-    // 3. URL 생성
-    const shareUrl = isRecipe 
-        ? `${window.location.origin}/recipe?recipeId=${data.id}&lang=${currentLang}`
-        : `${window.location.origin}/price?search=${encodeURIComponent(name)}&lang=${currentLang}`;
+    // 1. 이름에서 이모지 제거 (검색 정확도를 위해)
+    const rawName = data[`name_${currentLang}`] || data.name || data.item || "";
+    const cleanName = rawName.replace(/[💄🛒]/g, '').trim(); 
 
-    // 4. 설명 문구 (왓츠앱처럼 다정하게 수정 ✨)
-    let description = "";
-    if (isRecipe) {
-        // ✅ 레시피 모드: "이거 해보세요" 멘트 추가
-        const inviteText = 
-            currentLang === 'de' ? "Probier dieses Rezept aus! 👩‍🍳" : 
-            currentLang === 'en' ? "You should try this recipe! 🍳" : 
-            "이 레시피 한번 해보세요! 😋";
-            
-        const subText = 
-            currentLang === 'de' ? "Zutaten aus deutschen Supermärkten." : 
-            "독일 마트 재료로 만드는 쉽고 맛있는 한식!";
-            
-        description = `${inviteText}\n${subText}`;
-    } else {
-        // ✅ 가격 비교 모드: 절약 강조
-        const savings = (data.savings && data.savings !== "0.00") ? ` (${data.savings}€ 절약!)` : "";
-        description = currentLang === 'de' 
-            ? `Sparen Sie ${data.savings || '0.00'}€ bei ${name}! 💸 Now or Never!` 
-            : `${name} 최저가 ${data.price || '0.00'}€!${savings}\n지금 확인해보세요! 🛒`;
-    }
+    // 2. 뷰티 판별 (매우 중요!)
+    // 데이터 객체 자체에 isBeauty가 있거나, 이름에 뷰티 키워드가 있는지 확인
+    const beautyKeywords = ["serum", "sunscreen", "mist", "beauty", "세럼", "미스트"];
+    const isBeauty = data.isBeauty === true || 
+                     beautyKeywords.some(k => cleanName.toLowerCase().includes(k));
+
+    // 3. URL 생성 (tab 파라미터 강제 지정)
+    const baseUrl = window.location.origin;
+    const shareUrl = `${baseUrl}/price?search=${encodeURIComponent(cleanName)}&lang=${currentLang}&tab=${isBeauty ? 'beauty' : 'food'}`;
+
+    console.log("최종 발송 URL:", shareUrl); // 여기서 tab=beauty 인지 꼭 확인하세요!
 
     window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
-            title: isRecipe ? `👨‍🍳 [Recipe] ${name}` : `🛒 [Lowest Price] ${name}`,
-            description: description,
+            title: isBeauty ? `💄 [K-Beauty] ${cleanName}` : `🛒 [K-Food] ${cleanName}`,
+            description: `${cleanName} 최저가를 확인해보세요!`,
             imageUrl: 'https://k-food-with-german-groceries.web.app/og-image.png',
             link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
         },
         buttons: [{
-            title: isRecipe 
-                ? (currentLang === 'de' ? 'Rezept öffnen' : currentLang === 'en' ? 'View Recipe' : '레시피 보기') 
-                : (currentLang === 'de' ? 'Preis prüfen' : '가격 확인하기'),
+            title: '가격 확인하기',
             link: { mobileWebUrl: shareUrl, webUrl: shareUrl }
         }],
     });
