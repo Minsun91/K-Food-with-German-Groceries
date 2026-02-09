@@ -23,7 +23,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
     const [selectedSubCategory, setSelectedSubCategory] = useState('all');
-    
+
 
     // Firebase 데이터 로드
     useEffect(() => {
@@ -50,7 +50,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
         return () => unsubscribe();
     }, [onUpdateData]);
 
-    
+
     // 검색어 자동 스크롤 로직 (기존 유지)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -72,20 +72,21 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
     const currentDelivery = useMemo(() => {
         if (!prices || prices.length === 0) return { mart: '-', price: 0 };
-        
+
         // 배송비 정보가 있는 품목들만 추려서 가장 낮은 배송비 찾기
         const deliverySpeeds = prices
             .filter(p => p.deliveryFee !== undefined)
             .sort((a, b) => a.deliveryFee - b.deliveryFee);
-    
-        return deliverySpeeds.length > 0 
+
+        return deliverySpeeds.length > 0
             ? { mart: deliverySpeeds[0].mart, price: deliverySpeeds[0].deliveryFee }
             : { mart: '기본', price: 5.99 }; // 기본값
     }, [prices]);
+
     // 🌟 핵심: 데이터 필터링 및 [식품/뷰티] 자동 분류 로직
     const filteredAndGroupedData = useMemo(() => {
         const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
-    
+
         // 1. 카테고리 판별 함수 (food 탭 전용)
         const getSubCat = (name) => {
             if (name.match(/김치|만두|돈까스|떡볶이|어묵/)) return 'fresh';
@@ -94,35 +95,59 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             if (name.match(/과자|스낵|커피|차|음료|햇반|김/)) return 'snack';
             return 'etc';
         };
-    
+
         // 2. 전체 필터링 (검색어 + 탭 구분)
         const filtered = prices.filter(p => {
             const targetText = `${p.item} ${p.mart} ${p.searchKeyword || ""}`.toLowerCase();
             const matchesSearch = searchWords.every(word => targetText.includes(word));
-    
+
             // 💄 뷰티 품목 판별
             const isBeautyItem = targetText.includes("리들샷") ||
-                                targetText.includes("reedle") ||
-                                targetText.includes("cosmetic") ||
-                                targetText.includes("선크림");
+                targetText.includes("reedle") ||
+                targetText.includes("cosmetic") ||
+                targetText.includes("선크림")||
+                targetText.includes("serum");
 
             const categoryMatch = categoryTab === 'beauty' ? isBeautyItem : !isBeautyItem;
             return matchesSearch && categoryMatch;
         });
-    
-        // 3. 그룹화 로직 (여기서 '키워드'별로 묶음)
+
         const grouped = filtered.reduce((acc, obj) => {
-            let key = obj.searchKeyword || "기타";
-            if (key.includes("신라면")) key = "🍜 신라면 (Shin Ramyun)";
-            else if (key.includes("불닭")) key = "🔥 불닭볶음면 (Buldak)";
-            else if (key.includes("리들샷")) key = "💄 리들샷 (Reedle Shot)";
-            else if (key.includes("김치")) key = "🥬 종가집 김치 (Kimchi)";
-    
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(obj);
+            const itemTitle = obj.item || "";
+            const keyword = obj.searchKeyword || "";
+            const martName = obj.mart || "";
+
+            // 1. 깐깐한 뷰티 키워드 리스트
+            const beautyTerms = ["serum", "sunscreen", "shot", "mist", "cream", "d'alba", "리들샷", "미스트", "세럼", "달바", "화장품"];
+
+            // 2. 뷰티 판별 (김치/라면/불닭은 무조건 제외하는 방어 로직 포함)
+            const isFoodException = keyword.includes("김치") || keyword.includes("라면") || keyword.includes("불닭");
+            const hasBeautyWord = beautyTerms.some(term =>
+                itemTitle.toLowerCase().includes(term) ||
+                keyword.toLowerCase().includes(term)
+            );
+
+            const isBeauty = (hasBeautyWord || martName === "K-Beauty" || martName === "Stylevana") && !isFoodException;
+
+            // 3. 카테고리 이름 결정 (이제 앞에 [K-Beauty]를 붙이지 않습니다!)
+            let categoryKey = keyword || "기타";
+            if (categoryKey.includes("신라면")) categoryKey = "🍜 신라면 (Shin Ramyun)";
+            else if (categoryKey.includes("불닭")) categoryKey = "🔥 불닭볶음면 (Buldak)";
+            else if (categoryKey.includes("김치")) categoryKey = "🥬 종가집 김치 (Kimchi)";
+            else if (isBeauty) {
+                // 뷰티 제품이면 아이콘만 살짝
+                categoryKey = `💄 ${categoryKey.replace(/\[.*?\]/g, '').trim()}`;
+            }
+
+            // 4. 데이터 저장 (isBeauty 정보를 함께 넘겨줍니다)
+            if (!acc[categoryKey]) acc[categoryKey] = [];
+
+            // 개별 아이템에 뷰티 여부를 태깅해서 나중에 쓸 수 있게 합니다.
+            acc[categoryKey].push({ ...obj, isBeauty });
+
             return acc;
         }, {});
-    
+
         // 4. ✨ 식품 탭일 때만 서브 카테고리 필터링 적용
         let finalGrouped = grouped;
         if (categoryTab === 'food' && selectedSubCategory !== 'all') {
@@ -133,20 +158,20 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                     return obj;
                 }, {});
         }
-    
+
         // 5. 가격 정렬 및 최저/최고가 계산
         Object.keys(finalGrouped).forEach(key => {
             finalGrouped[key].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
             const minP = parseFloat(finalGrouped[key][0].price);
             const maxP = parseFloat(finalGrouped[key][finalGrouped[key].length - 1].price);
-            
+
             finalGrouped[key] = finalGrouped[key].map(item => ({
                 ...item,
                 minPrice: minP,
                 maxPrice: maxP
             }));
         });
-    
+
         return finalGrouped;
     }, [prices, searchTerm, categoryTab, selectedSubCategory]);
 
@@ -236,75 +261,75 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             </div>
 
             {/* 💄 2. [식품 / 뷰티] 카테고리 전환 탭 */}
-<div className="flex justify-center mt-6 mb-2">
-    <div className="inline-flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
-        {/* 한국 식품 탭 */}
-        <button
-            onClick={() => { 
-                setCategoryTab('food'); 
-                setSelectedSubCategory('all'); // 서브 카테고리 초기화
-                setSearchTerm(""); 
-            }}
-            className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'food' ? 'bg-white shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-            🛒 {currentLang === 'ko' ? '한국 식품' : 'K-Food'}
-        </button>
-        
-        {/* K-뷰티 탭 */}
-        <button
-            onClick={() => { 
-                setCategoryTab('beauty'); 
-                setSelectedSubCategory('all'); // 서브 카테고리 초기화
-                setSearchTerm(""); 
-            }}
-            className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'beauty' ? 'bg-white shadow-md text-pink-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-            💄 {currentLang === 'ko' ? 'K-뷰티' : 'K-Beauty'}
-        </button>
-    </div>
-</div>
+            <div className="flex justify-center mt-6 mb-2">
+                <div className="inline-flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
+                    {/* 한국 식품 탭 */}
+                    <button
+                        onClick={() => {
+                            setCategoryTab('food');
+                            setSelectedSubCategory('all'); // 서브 카테고리 초기화
+                            setSearchTerm("");
+                        }}
+                        className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'food' ? 'bg-white shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        🛒 {currentLang === 'ko' ? '한국 식품' : 'K-Food'}
+                    </button>
 
-{/* 🏷️ 3-1. 품목별 퀵 카테고리 (식품 탭일 때만 노출) */}
-{categoryTab === 'food' && (
-    <div className="px-4 md:px-6 mt-4 overflow-x-auto no-scrollbar flex justify-center">
-        <div className="flex gap-2 pb-2">
-            {/* currentLang이 'de'일 때도 이제 FOOD_CATEGORIES.de 가 있으니 잘 나옵니다! */}
-            {(FOOD_CATEGORIES[currentLang] || FOOD_CATEGORIES.ko).map((cat) => (
-                <button
-                    key={cat.id}
-                    onClick={() => setSelectedSubCategory(cat.id)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all border
-                        ${selectedSubCategory === cat.id 
-                            ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
-                            : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200'}`}
-                >
-                    <span>{cat.emoji}</span>
-                    {cat.label}
-                </button>
-            ))}
-        </div>
-    </div>
-)}
+                    {/* K-뷰티 탭 */}
+                    <button
+                        onClick={() => {
+                            setCategoryTab('beauty');
+                            setSelectedSubCategory('all'); // 서브 카테고리 초기화
+                            setSearchTerm("");
+                        }}
+                        className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'beauty' ? 'bg-white shadow-md text-pink-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        💄 {currentLang === 'ko' ? 'K-뷰티' : 'K-Beauty'}
+                    </button>
+                </div>
+            </div>
 
-{/* 🔍 3. 검색바 (여기도 currentDelivery 에러 안 나게 처리) */}
-<div className="px-4 md:px-6 py-4 search-bar-anchor">
-    <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-            🔍
-        </div>
-        <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={
-                categoryTab === 'food' 
-                    ? (currentLang === 'ko' ? "식품 검색 (예: 신라면, 김치)" : "Search food...")
-                    : (currentLang === 'ko' ? "뷰티 검색 (예: 리들샷, 선크림)" : "Search beauty...")
-            }
-            className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-        />
-    </div>
-</div>
+            {/* 🏷️ 3-1. 품목별 퀵 카테고리 (식품 탭일 때만 노출) */}
+            {categoryTab === 'food' && (
+                <div className="px-4 md:px-6 mt-4 overflow-x-auto no-scrollbar flex justify-center">
+                    <div className="flex gap-2 pb-2">
+                        {/* currentLang이 'de'일 때도 이제 FOOD_CATEGORIES.de 가 있으니 잘 나옵니다! */}
+                        {(FOOD_CATEGORIES[currentLang] || FOOD_CATEGORIES.ko).map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setSelectedSubCategory(cat.id)}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all border
+                        ${selectedSubCategory === cat.id
+                                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                                        : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200'}`}
+                            >
+                                <span>{cat.emoji}</span>
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* 🔍 3. 검색바 (여기도 currentDelivery 에러 안 나게 처리) */}
+            <div className="px-4 md:px-6 py-4 search-bar-anchor">
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        🔍
+                    </div>
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder={
+                            categoryTab === 'food'
+                                ? (currentLang === 'ko' ? "식품 검색 (예: 신라면, 김치)" : "Search food...")
+                                : (currentLang === 'ko' ? "뷰티 검색 (예: 세럼럼, 선크림)" : "Search beauty...")
+                        }
+                        className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+                    />
+                </div>
+            </div>
 
             {/* 📦 4. 상품 리스트 (기존 렌더링 로직 유지) */}
             <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
@@ -312,18 +337,11 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                     Object.keys(filteredAndGroupedData)
 
                         .sort((a, b) => {
-                            // 1. '기타' 카테고리는 무조건 맨 아래로
-
                             if (a === "기타") return 1;
-
                             if (b === "기타") return -1;
-
                             const itemsA = filteredAndGroupedData[a];
-
                             const itemsB = filteredAndGroupedData[b];
-
                             // 2. 각 카테고리에서 가장 최근 업데이트된 시간을 가져옴
-
                             const timeA = new Date(
                                 Math.max(
                                     ...itemsA.map(
@@ -335,9 +353,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                             const timeB = new Date(
                                 Math.max(
                                     ...itemsB.map(
-                                        (i) => new Date(i.updatedAt || 0),
-                                    ),
-                                ),
+                                        (i) => new Date(i.updatedAt || 0),), ),
                             ).getTime();
 
                             // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
@@ -364,9 +380,9 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                                 savings:
                                     firstItem.maxPrice && firstItem.minPrice
                                         ? (
-                                              firstItem.maxPrice -
-                                              firstItem.minPrice
-                                          ).toFixed(2)
+                                            firstItem.maxPrice -
+                                            firstItem.minPrice
+                                        ).toFixed(2)
                                         : "0.00",
                                 bestStore:
                                     firstItem.bestStore ||
@@ -477,22 +493,22 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
                                                                     {idx ===
                                                                         0 && (
-                                                                        <span className="text-sm">
-                                                                            🏆
-                                                                        </span>
-                                                                    )}
+                                                                            <span className="text-sm">
+                                                                                🏆
+                                                                            </span>
+                                                                        )}
                                                                 </div>
 
                                                                 {prevPrice &&
                                                                     Math.abs(
                                                                         currentPrice -
-                                                                            prevPrice,
+                                                                        prevPrice,
                                                                     ) >
-                                                                        0.001 && (
+                                                                    0.001 && (
                                                                         <span
                                                                             className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? "text-green-600 bg-green-50" : "text-rose-600 bg-rose-50"}`}>
                                                                             {currentPrice <
-                                                                            prevPrice
+                                                                                prevPrice
                                                                                 ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}`
                                                                                 : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
                                                                         </span>
@@ -519,7 +535,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                                         )}
                                     </div>
 
-                                   
+
 
                                 </div>
                             );
@@ -541,12 +557,10 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                 .custom-scrollbar::-webkit-scrollbar { width: 5px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
             `}} />
-
-<div className="w-full max-w-4xl mx-auto mt-12 mb-20 px-4">
-<ReportPriceForm currentLang={currentLang} />
+            <div className="w-full max-w-4xl mx-auto mt-12 mb-20 px-4">
+                <ReportPriceForm currentLang={currentLang} />
+            </div>
         </div>
-        </div>
-        
     );
 };
 
