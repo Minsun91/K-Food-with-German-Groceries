@@ -12,14 +12,14 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
+
 const marts = [
-  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  // { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
-  // { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  // { name: "Joybuy", url: "https://www.joybuy.de/s?k=" }, 
-  // { name: "아마존", url: "https://www.amazon.de/s?k=", affiliateId: "kfoodtracker-21" },
+  { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
+  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
+  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
   { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" }
 ];
 
@@ -30,95 +30,113 @@ const targetItems = [
   { ko: "종가집 김치", search: "Jongga Mat Kimchi" },
   { ko: "진간장", search: "Sempio Soy Sauce" },
   { ko: "비비고 두부(부침용)", search: "Bibigo Tofu" },
-  // { ko: "CJ 햇반", search: "CJ Hetbahn" }, 
-  // { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
-  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
+  { ko: "CJ 햇반", search: "CJ Hetbahn" },
+  { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen" },
+  { ko: "맥심 모카골드", search: "Maxim Mocha Gold" }
 ];
 
 async function updatePrices() {
   let newResults = [];
-  
-  // 1. ✅ 기존 데이터 가져오기
   let existingData = [];
+
+  // 1. 기존 데이터 로드
   try {
     const doc = await db.collection("prices").doc("latest").get();
-    if (doc.exists) {
-      existingData = doc.data().data || [];
-      console.log(`📂 기존 데이터 ${existingData.length}개를 불러왔습니다.`);
-    }
+    if (doc.exists) existingData = doc.data().data || [];
+    console.log(`📂 기존 데이터 ${existingData.length}개 로드 완료.`);
   } catch (e) {
-    console.log("기존 데이터가 없습니다. 새로 시작합니다.");
+    console.log("기존 데이터가 없거나 로드에 실패했습니다.");
   }
 
+  // 2. 크롤링 루프
   for (const itemObj of targetItems) {
     for (const mart of marts) {
       try {
-        // 💡 한국 마트는 한국어로, 현지 마트는 영어로 검색하게 분기!
         const isKoreanMart = ["한독몰", "와이마트", "다와요", "K-Shop"].includes(mart.name);
-        const query = isKoreanMart ? itemObj.ko : itemObj.search; 
-        
+        const query = isKoreanMart ? itemObj.ko : itemObj.search;
         const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
-        
-        console.log(`📡 [${mart.name}] AI 분석 중: ${itemObj.ko} (${query})`);
-        
+
+        console.log(`📡 [${mart.name}] 분석 시작: ${itemObj.ko}`);
+
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            // Prompt를 조금 더 정교하게 다듬었습니다 (단위 무게 포함 권장)
-            prompt: `Find the most relevant single product for "${itemObj.search}". 
-                     Return the exact product name and price. 
-                     Exclude bundles/multipacks if possible. 
-                     If multiple items exist, pick the standard size.`,
+            prompt: `Find matching products for "${itemObj.search}". 
+                     Classify each as 'single' (1 unit) or 'multi' (bundle/pack of 4, 5, etc).
+                     Focus on the most relevant results.`,
             schema: {
               type: "object",
               properties: {
-                product_name: { type: "string" },
-                price: { type: "number" }
-              },
-              required: ["product_name", "price"]
+                products: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      product_name: { type: "string" },
+                      price: { type: "number" },
+                      type: { type: "string", enum: ["single", "multi"] },
+                      pack_size: { type: "string" }
+                    },
+                    required: ["product_name", "price", "type"]
+                  }
+                }
+              }
             }
           }
         });
 
-        if (scrapeResult.success && scrapeResult.extract) {
-          const data = scrapeResult.extract;
-          newResults.push({
-            item: data.product_name,
-            price: data.price.toFixed(2),
-            mart: mart.name,
-            link: searchUrl,
-            searchKeyword: itemObj.ko,
-            updatedAt: new Date().toISOString()
+        if (scrapeResult.success && scrapeResult.extract?.products) {
+          scrapeResult.extract.products.forEach(product => {
+            newResults.push({
+              item: product.product_name,
+              price: product.price.toFixed(2),
+              packType: product.type,
+              packSize: product.pack_size || "1ea",
+              mart: mart.name,
+              link: searchUrl,
+              searchKeyword: itemObj.ko,
+              updatedAt: new Date().toISOString()
+            });
+            console.log(`✅ [${mart.name}] ${product.type}: ${product.product_name} -> €${product.price}`);
           });
-          console.log(`✅ [${mart.name}] 발견: ${data.product_name} -> €${data.price}`);
         }
       } catch (e) {
-        console.error(`❌ ${mart.name} 에러:`, e.message);
+        console.error(`❌ [${mart.name}] 에러 발생:`, e.message);
       }
     }
   }
 
-  // 2. ✅ 중복 제거 및 데이터 합치기 (기존 로직 유지)
-  const updatedData = [
-    ...existingData.filter(old => {
-      const matched = newResults.find(newItem => newItem.searchKeyword === old.searchKeyword && newItem.mart === old.mart);
-      if (matched) {
-          matched.prevPrice = old.price; 
-          return false;
-      }
-      return true;
-    }),
-    ...newResults
+  // 3. 데이터 병합 (중복 제거 및 이전 가격 매칭)
+  // 새 결과에 들어있는 '키워드+마트+팩타입' 조합은 기존 데이터에서 지우고 새 것으로 교체
+  const filteredExisting = existingData.filter(old => {
+    return !newResults.some(newItem => 
+      newItem.searchKeyword === old.searchKeyword && 
+      newItem.mart === old.mart && 
+      newItem.packType === old.packType
+    );
+  });
+
+  const finalData = [
+    ...filteredExisting,
+    ...newResults.map(newItem => {
+      const oldItem = existingData.find(o => 
+        o.searchKeyword === newItem.searchKeyword && 
+        o.mart === newItem.mart && 
+        o.packType === newItem.packType
+      );
+      if (oldItem) newItem.prevPrice = oldItem.price;
+      return newItem;
+    })
   ];
 
-  // 3. ✅ 최종 저장
-  if (updatedData.length > 0) {
-    await db.collection("prices").doc("latest").set({ 
-      data: updatedData,
+  // 4. Firebase 저장
+  if (finalData.length > 0) {
+    await db.collection("prices").doc("latest").set({
+      data: finalData,
       lastGlobalUpdate: new Date().toISOString(),
-      status: "AI-Verified-Cumulative"
+      status: "AI-Verified-Cumulative-Multi"
     });
-    console.log(`✨ 누적 데이터 총 ${updatedData.length}개 저장 완료!`);
+    console.log(`✨ 업데이트 완료! 총 ${finalData.length}개의 데이터를 저장했습니다.`);
   }
 }
 
