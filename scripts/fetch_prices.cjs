@@ -135,8 +135,8 @@ newResults.forEach(product => {
   // 2. 쌀 & 기타 변종 키워드 필터링 (강력 보강)
   // - Broken|Sushi|Brown: 쌀 변종 방어
   // - Jasmine|Basmati: 동남아/인도 쌀 방어
-  const isVariant = /현미|흑미|잡곡|발아|찹쌀|Black|Brown|Multi-grain|Tomyum|Toomba|Red|Goraebap|Broken|Sushi|Jasmine|Basmati/i.test(product.item || product.product_name);
-  if (isVariant) return;
+// 쌀, 라면 변종에 이어 김치 변종도 추가!
+const isVariant = /현미|흑미|잡곡|Broken|Sushi|Tomyum|Toomba|포기|총각|열무|갓김치|Pa-Kimchi|Chonggak/i.test(product.item || product.product_name);  if (isVariant) return;
 
   // 3. 브랜드 검증 (선택 사항이지만 강력함)
   // 만약 targetItems에 brand를 정의했다면, 브랜드가 포함 안 된 결과는 버립니다.
