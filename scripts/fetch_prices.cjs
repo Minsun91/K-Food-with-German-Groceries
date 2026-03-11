@@ -14,56 +14,48 @@ const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 
 const marts = [
-  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" },
-  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
-  // { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" }
+  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" }
 ];
 
 const targetItems = [
   { ko: "신라면", search: "Nongshim Shin Ramyun", brand: "Nongshim" },
   { ko: "진라면 매운맛", search: "Ottogi Jin Ramen Hot", brand: "Ottogi" },
-  { ko: "진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" },
-  // { ko: "종가집 김치", search: "Jongga Mat Kimchi", brand: "Jongga" },
-  // { ko: "불닭볶음면", search: "Samyang Buldak Original", brand: "Samyang" },
-  // { ko: "짜파게티", search: "Nongshim Chapagetti" , brand : "Nongshim"},
-  // { ko: "CJ 햇반", search: "CJ Hetbahn", brand: "CJ" },
-  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold Mix", brand: "Maxim" },
-  // { ko: "김포쌀", search: "Gimpo Rice 9.07kg", brand: "Gimpo" }
+  { ko: "진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" }
 ];
 
 async function updatePrices() {
   let newResults = [];
   let existingData = [];
 
-  // 1. 기존 데이터 로드
   try {
     const doc = await db.collection("prices").doc("latest").get();
     if (doc.exists) existingData = doc.data().data || [];
-    console.log(`📂 기존 데이터 ${existingData.length}개 로드 완료.`);
   } catch (e) {
-    console.log("기존 데이터가 없거나 로드에 실패했습니다.");
+    console.log("기존 데이터 로드 실패(정상일 수 있음)");
   }
 
-  // 2. 크롤링 루프 시작
+  // 1. 크롤링 시작 (for...of 사용으로 스코프 안정화)
   for (const itemObj of targetItems) {
-    // 아이템별로 마트마다 결과를 수집할 때 중복 막기 (싱글1, 번들1)
-    const seenStorePacksInThisLoop = new Set(); 
+    const seenStorePacksInThisLoop = new Set();
 
     for (const mart of marts) {
       try {
-        const isKoreanMart = ["한독몰", "와이마트", "다와요", "K-Shop"].includes(mart.name);
-        const query = isKoreanMart ? itemObj.ko : itemObj.search;
-        const searchUrl = `${mart.url}${encodeURIComponent(query)}`;
-
-        console.log(`🚀 [${mart.name}] 분석 시작: ${itemObj.ko}`);
+        const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
+        console.log(`🚀 [${mart.name}] 분석 중: ${itemObj.ko}`);
 
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            prompt: `Find exactly ONE 'single' pack and ONE 'multi' pack for "${itemObj.search}". 
-            STRICTLY IGNORE: variants like Tomyum, Toomba, Black, Brown rice, or other brands. 
-            Must match brand: ${itemObj.brand || 'Any'}.`,
+            prompt: `You are a strict e-commerce data extractor for "${itemObj.search}".
+- TASK: From the search results, extract exactly ONE 'single' pack and ONE 'multi' (bundle) pack that matches the "Original/Classic" version.
+- SELECTION PRIORITY: 
+    1. Prioritize the plain, classic, or original product version.
+    2. Identify if the product is 'single' or 'multi' (e.g., bundle of 5, pack of 4).
+- NEGATIVE CONSTRAINTS (CRITICAL):
+    1. IGNORE flavor variants (e.g., Tomyum, Toomba, Black, Red, Kimchi, Spicy).
+    2. IGNORE ingredient variants (e.g., Brown Rice, Black Rice, Multi-grain, Germinated).
+    3. IGNORE irrelevant items: If searching for '${itemObj.search}', do not return other brands or unrelated items.
+- OUTPUT: Return a list of products that are 100% relevant. If unsure, return an empty list.`,
             schema: {
               type: "object",
               properties: {
@@ -86,19 +78,19 @@ async function updatePrices() {
         });
 
         if (scrapeResult.success && scrapeResult.extract?.products) {
-          scrapeResult.extract.products.forEach(product => {
-            // 🛡️ 필터 1: 변종 키워드 제거
+          // for...of를 사용하여 변수 스코프 문제 원천 차단
+          for (const product of scrapeResult.extract.products) {
+            
+            // 필터링
             const isVariant = /현미|흑미|잡곡|발아|Broken|Sushi|Tomyum|Toomba|포기|총각|열무|갓김치|Pa-Kimchi/i.test(product.product_name);
-            if (isVariant) return;
-
-            // 🛡️ 필터 2: 브랜드 검사
+            if (isVariant) continue;
+            
             if (itemObj.brand && !product.product_name.toLowerCase().includes(itemObj.brand.toLowerCase())) {
-              return; 
+              continue;
             }
 
-            // 🛡️ 필터 3: 마트별-타입별 중복 제거
             const storePackKey = `${mart.name}-${product.type}`;
-            if (seenStorePacksInThisLoop.has(storePackKey)) return;
+            if (seenStorePacksInThisLoop.has(storePackKey)) continue;
 
             newResults.push({
               item: product.product_name,
@@ -106,53 +98,35 @@ async function updatePrices() {
               packType: product.type,
               packSize: product.pack_size || "1ea",
               mart: mart.name,
-              link: searchUrl,
               searchKeyword: itemObj.ko,
-              category: `${itemObj.ko} (${product.type === 'multi' ? '번들' : '싱글'})`,
               updatedAt: new Date().toISOString()
             });
 
             seenStorePacksInThisLoop.add(storePackKey);
-            console.log(`✅ [${mart.name}] 통과: ${product.product_name}`);
-          });
+          }
         }
       } catch (e) {
-        console.error(`❌ [${mart.name}] ${itemObj.ko} 에러:`, e.message);
+        console.error(`❌ 에러: ${e.message}`);
       }
     }
   }
 
-  // 3. 데이터 병합 (newResults 바로 사용)
+  // 2. 데이터 병합 (newResults 사용)
   const finalData = [
-    ...existingData.filter(old => {
-      return !newResults.some(newItem => 
-        newItem.mart === old.mart && 
-        newItem.searchKeyword === old.searchKeyword && 
-        newItem.packType === old.packType &&
-        newItem.packSize?.replace(/\s+/g, '').toLowerCase() === old.packSize?.replace(/\s+/g, '').toLowerCase()
-      );
-    }),
+    ...existingData.filter(old => !newResults.some(n => n.mart === old.mart && n.searchKeyword === old.searchKeyword && n.packType === old.packType)),
     ...newResults.map(newItem => {
-      const oldItem = existingData.find(o => 
-        o.mart === newItem.mart && 
-        o.searchKeyword === newItem.searchKeyword && 
-        o.packType === newItem.packType &&
-        o.packSize?.replace(/\s+/g, '').toLowerCase() === newItem.packSize?.replace(/\s+/g, '').toLowerCase()
-      );
+      const oldItem = existingData.find(o => o.mart === newItem.mart && o.searchKeyword === newItem.searchKeyword && o.packType === newItem.packType);
       if (oldItem) newItem.prevPrice = oldItem.price;
       return newItem;
     })
   ];
 
-  // 4. Firebase 저장
-  if (finalData.length > 0) {
-    await db.collection("prices").doc("latest").set({
-      data: finalData,
-      lastGlobalUpdate: new Date().toISOString(),
-      status: "AI-Verified-v4-Clean"
-    });
-    console.log(`✨ 업데이트 완료! 총 ${finalData.length}개 저장되었습니다.`);
-  }
+  // 3. 저장
+  await db.collection("prices").doc("latest").set({
+    data: finalData,
+    lastGlobalUpdate: new Date().toISOString()
+  });
+  console.log(`✨ 저장 완료! 총 ${finalData.length}개.`);
 }
 
 updatePrices();
