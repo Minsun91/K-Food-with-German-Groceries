@@ -36,6 +36,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                     const cleanData = rawData.filter(
                         (p) => p.item && p.price && p.price !== "0",
                     );
+                    console.log("데이터 확인:", cleanData[0]); // 여기서 packSize 혹은 pack_size가 보이는지 확인!
                     setPrices(cleanData);
                     if (data.lastGlobalUpdate && onUpdateData) {
                         const timeString = new Date(
@@ -314,7 +315,6 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             {categoryTab === 'food' && (
                 <div className="px-4 md:px-6 mt-4 overflow-x-auto no-scrollbar flex justify-center">
                     <div className="flex gap-2 pb-2">
-                        {/* currentLang이 'de'일 때도 이제 FOOD_CATEGORIES.de 가 있으니 잘 나옵니다! */}
                         {(FOOD_CATEGORIES[currentLang] || FOOD_CATEGORIES.ko).map((cat) => (
                             <button
                                 key={cat.id}
@@ -495,10 +495,12 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
                                                                 {p.mart}
                                                             </span>
-
-                                                            <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 truncate leading-snug">
-                                                                {p.item}
-                                                            </span>
+                                                            <span className="text-sm font-bold text-slate-700">
+    {p.item} 
+    <span className="text-slate-400 font-normal ml-1">
+        {p.packSize && `(${p.packSize})`}
+    </span>
+</span>
                                                         </div>
 
                                                         <div className="flex items-center gap-3 shrink-0">
