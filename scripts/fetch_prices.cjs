@@ -14,14 +14,27 @@ const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 
 const marts = [
-  { name: "다와요", url: "https://dawayo.de/?post_type=product&s=" }
+  { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
+  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
+  { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" }
 ];
 
+
+
 const targetItems = [
-  { ko: "신라면", search: "Nongshim Shin Ramyun", brand: "Nongshim" },
-  { ko: "진라면 매운맛", search: "Ottogi Jin Ramen Hot", brand: "Ottogi" },
-  { ko: "진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" }
+   { ko: " 진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" },
+  { ko: "종가집 김치", search: "Jongga Mat Kimchi", brand: "Jongga" },
+  { ko: "불닭볶음면", search: "Samyang Buldak Original", brand: "Samyang" },
+  { ko: "짜파게티", search: "Nongshim Chapagetti" , brand : "Nongshim"},
+  { ko: "CJ 햇반", search: "CJ Hetbahn", brand: "CJ" },
+  { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen"},
+  { ko: "맥심 모카골드", search: "Maxim Mocha Gold Mix", brand: "Maxim" },
+  { ko: "김포쌀", search: "Gimpo Rice 9.07kg", brand: "Gimpo" }
 ];
+
 
 async function updatePrices() {
   let newResults = [];
@@ -94,13 +107,15 @@ async function updatePrices() {
 
             newResults.push({
               item: product.product_name,
-              price: product.price.toFixed(2),
-              packType: product.type,
-              packSize: product.pack_size || "1ea",
-              mart: mart.name,
-              searchKeyword: itemObj.ko,
-              updatedAt: new Date().toISOString()
-            });
+                  price: product.price.toFixed(2),
+                  packType: product.type,
+                  packSize: product.pack_size || "1ea",
+                  mart: mart.name,
+                  link: searchUrl, // 👈 링크 복구했습니다!
+                  searchKeyword: itemObj.ko,
+                  category: `${itemObj.ko} (${product.type === 'multi' ? '번들' : '싱글'})`,
+                  updatedAt: new Date().toISOString()
+                });
 
             seenStorePacksInThisLoop.add(storePackKey);
           }
