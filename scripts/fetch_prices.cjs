@@ -61,9 +61,11 @@ async function updatePrices() {
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            prompt: `Find matching products for "${itemObj.search}". 
-                     Classify each as 'single' (1 unit) or 'multi' (bundle/pack of 4, 5, etc).
-                     Focus on the most relevant results.`,
+            prompt: `Find all relevant products for "${itemObj.search}".
+                     1. Classify into 'single' (1 unit) or 'multi' (bundle/pack).
+                     2. Crucial: Extract the EXACT volume or weight (e.g., "860ml", "1.7L", "120g x 5", "50ml") and put it in 'pack_size'.
+                     3. If you can't find a specific volume/size in the product title or description, skip that item.
+                     4. Ignore non-related items (e.g., if searching for Soy Sauce, ignore Vinegar).`,
             schema: {
               type: "object",
               properties: {
@@ -75,9 +77,9 @@ async function updatePrices() {
                       product_name: { type: "string" },
                       price: { type: "number" },
                       type: { type: "string", enum: ["single", "multi"] },
-                      pack_size: { type: "string" }
+                      pack_size: { type: "string" } // 예: 860ml, 1.7L
                     },
-                    required: ["product_name", "price", "type"]
+                    required: ["product_name", "price", "type", "pack_size"]
                   }
                 }
               }
@@ -106,38 +108,39 @@ async function updatePrices() {
     }
   }
 
-  // 3. 데이터 병합 (중복 제거 및 이전 가격 매칭)
-  // 새 결과에 들어있는 '키워드+마트+팩타입' 조합은 기존 데이터에서 지우고 새 것으로 교체
-  const filteredExisting = existingData.filter(old => {
+// 3. 데이터 병합 (중복 제거 및 이전 가격 매칭)
+const finalData = [
+  ...existingData.filter(old => {
     return !newResults.some(newItem => 
-      newItem.searchKeyword === old.searchKeyword && 
       newItem.mart === old.mart && 
-      newItem.packType === old.packType
+      newItem.searchKeyword === old.searchKeyword && 
+      newItem.packType === old.packType &&
+      // 공백과 대소문자를 무시하고 비교하여 중복 제거
+      newItem.packSize?.replace(/\s+/g, '').toLowerCase() === old.packSize?.replace(/\s+/g, '').toLowerCase()
     );
+  }),
+  ...newResults.map(newItem => {
+    // 이전 가격 매칭 시에도 동일한 정규화 규칙 적용
+    const oldItem = existingData.find(o => 
+      o.mart === newItem.mart && 
+      o.searchKeyword === newItem.searchKeyword && 
+      o.packType === newItem.packType &&
+      o.packSize?.replace(/\s+/g, '').toLowerCase() === newItem.packSize?.replace(/\s+/g, '').toLowerCase()
+    );
+    if (oldItem) newItem.prevPrice = oldItem.price;
+    return newItem;
+  })
+];
+
+// 4. Firebase 저장
+if (finalData.length > 0) {
+  await db.collection("prices").doc("latest").set({
+    data: finalData, // 이제 finalData로 통일됨
+    lastGlobalUpdate: new Date().toISOString(),
+    status: "AI-Verified-Cumulative-Multi-v3"
   });
-
-  const finalData = [
-    ...filteredExisting,
-    ...newResults.map(newItem => {
-      const oldItem = existingData.find(o => 
-        o.searchKeyword === newItem.searchKeyword && 
-        o.mart === newItem.mart && 
-        o.packType === newItem.packType
-      );
-      if (oldItem) newItem.prevPrice = oldItem.price;
-      return newItem;
-    })
-  ];
-
-  // 4. Firebase 저장
-  if (finalData.length > 0) {
-    await db.collection("prices").doc("latest").set({
-      data: finalData,
-      lastGlobalUpdate: new Date().toISOString(),
-      status: "AI-Verified-Cumulative-Multi"
-    });
-    console.log(`✨ 업데이트 완료! 총 ${finalData.length}개의 데이터를 저장했습니다.`);
-  }
+  console.log(`✨ 업데이트 완료! 총 ${finalData.length}개의 데이터를 저장했습니다.`);
+}
 }
 
 updatePrices();
