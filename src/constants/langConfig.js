@@ -29,7 +29,9 @@ export const langConfig = {
         no_price_data: "비교 가능한 데이터가 아직 없습니다.",
         best_price: "최저가",
         foodPlaceholder: "어떤 음식을 찾으세요? 🍲",
-        beautyPlaceholder: "지금 가장 핫한 K-Beauty 최저가는? ✨"
+        beautyPlaceholder: "지금 가장 핫한 K-Beauty 최저가는? ✨",
+        bundle: '번들 / 멀티팩',
+        single: '낱개',
     },
     en: {
         name: "English",
@@ -60,7 +62,9 @@ export const langConfig = {
         no_price_data: "No comparison data available yet.",
         best_price: "Best Price",
         foodPlaceholder: "What are you craving today? 🥘",
-        beautyPlaceholder: "Find the hottest K-Beauty deals here! ✨"
+        beautyPlaceholder: "Find the hottest K-Beauty deals here! ✨",
+        bundle: 'Bundle / Multi Pack',
+        single: 'Single',
     },
     de: {
         name: "Deutsch",
@@ -91,7 +95,9 @@ export const langConfig = {
         no_price_data: "Noch keine Vergleichsdaten verfügbar.",
         best_price: "Bester Preis",
         foodPlaceholder: "Welches Gericht suchen Sie? 🍛",
-        beautyPlaceholder: "Beste K-Beauty Deals entdecken! ✨"
+        beautyPlaceholder: "Beste K-Beauty Deals entdecken! ✨",
+        bundle: 'Bundle / Multipack',
+        single: 'Einzelpack',
     },
 };
 
@@ -167,5 +173,5 @@ export const FOOD_CATEGORIES = {
         { id: 'grain', label: 'Reis & Nudeln', emoji: '🌾' },
         { id: 'sauce', label: 'Saucen & Gewürze', emoji: '🍯' },
         { id: 'snack', label: 'Snacks & Getränke', emoji: '🥤' }
-    ]
-};
+    ], 
+}

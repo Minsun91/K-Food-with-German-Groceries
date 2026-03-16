@@ -223,9 +223,9 @@ const RecipeView = ({
         try {
             // ⚠️ 요청하신 버전 절대 유지
             const model = genAI.getGenerativeModel({
-                model: "models/gemini-2.5-flash-preview-09-2025",
+                // model: "models/gemini-2.5-flash-preview-09-2025",
+                model: "gemini-2.5-flash" 
             });
-
             // 프롬프트 강화: 3개 국어 데이터를 한 번에 요청
 const prompt = `
   Create a detailed Korean recipe for "${userPrompt}".

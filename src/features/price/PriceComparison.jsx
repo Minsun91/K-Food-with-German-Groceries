@@ -23,7 +23,14 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
     const [selectedSubCategory, setSelectedSubCategory] = useState('all');
-
+       
+    const translationMap = {
+        "진라면 순한맛": "Jin Ramen (Mild)",
+        "진라면 매운맛": "Jin Ramen (Spicy)",
+        "짜파게티": "Chapagetti",
+        "불닭볶음면": "Buldak Ramen",
+        "신라면": "Shin Ramyun",
+    };
 
     // Firebase 데이터 로드
     useEffect(() => {
@@ -36,7 +43,6 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                     const cleanData = rawData.filter(
                         (p) => p.item && p.price && p.price !== "0",
                     );
-                    console.log("데이터 확인:", cleanData[0]); // 여기서 packSize 혹은 pack_size가 보이는지 확인!
                     setPrices(cleanData);
                     if (data.lastGlobalUpdate && onUpdateData) {
                         const timeString = new Date(
@@ -58,24 +64,24 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
         const tabParam = params.get('tab');       // 'beauty' 또는 'food'
         const searchQuery = params.get("search"); // 예: "달바"
         const langParam = params.get('lang');
-    
+
         // 🌟 [STEP 1] 탭 전환을 최우선으로 실행 (뷰티 탭으로 먼저 가야 뷰티 상품이 보임!)
         if (tabParam && categoryTab !== tabParam) {
-            setCategoryTab(tabParam); 
+            setCategoryTab(tabParam);
             // 탭이 바뀌면 리렌더링이 일어나므로, 검색 로직은 다음 cycle에서 prices와 함께 체크됨
         }
-    
+
         if (langParam) {
             // setCurrentLang(langParam); // 언어 설정 로직이 있다면 추가
         }
-    
+
         // 🌟 [STEP 2] 탭이 올바르게 설정된 상태에서 검색어 처리
         if (searchQuery && !hasAutoScrolled && prices.length > 0) {
             // 검색어에서 혹시 모를 이모지나 공백 제거
             const cleanQuery = decodeURIComponent(searchQuery).replace(/[💄🛒🍜🔥🥬✨]/g, '').trim();
-            
+
             setSearchTerm(cleanQuery);
-            
+
             // 검색어가 적용되어 화면이 바뀔 시간을 줌
             const scrollTimeout = setTimeout(() => {
                 const searchElement = document.querySelector(".search-bar-anchor");
@@ -87,7 +93,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                 }
                 setHasAutoScrolled(true);
             }, 1000); // 탭 전환 시간을 고려해 조금 더 넉넉하게 설정
-    
+
             return () => clearTimeout(scrollTimeout);
         }
     }, [prices, hasAutoScrolled, categoryTab]); // categoryTab을 의존성에 추가하여 탭 변경 후 다시 실행되게 함
@@ -102,12 +108,28 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
 
         return deliverySpeeds.length > 0
             ? { mart: deliverySpeeds[0].mart, price: deliverySpeeds[0].deliveryFee }
-            : { mart: '기본', price: 5.99 }; // 기본값
+            : { mart: '기본', price: 5.99 };
     }, [prices]);
 
     // 🌟 핵심: 데이터 필터링 및 [식품/뷰티] 자동 분류 로직
     const filteredAndGroupedData = useMemo(() => {
         const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
+
+        // 상품 이름을 결정하는 로직
+const getItemName = (p, lang) => {
+    if (lang === 'KO') return p.item; // 한국어면 그대로 출력
+
+    // 영어/독어일 때 바꿀 규칙 (Mapping)
+    const translationMap = {
+        "진라면 순한맛": "Jin Ramen (Mild)",
+        "진라면 매운맛": "Jin Ramen (Spicy)",
+        "짜파게티": "Chapagetti",
+        "불닭볶음면": "Buldak Ramen"
+    };
+
+    // 매칭되는 영문명이 있으면 그걸 쓰고, 없으면 원래 이름 출력
+    return translationMap[p.item] || p.item;
+};
 
         // 1. 카테고리 판별 함수 (food 탭 전용)
         const getSubCat = (name) => {
@@ -127,7 +149,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             const isBeautyItem = targetText.includes("리들샷") ||
                 targetText.includes("reedle") ||
                 targetText.includes("cosmetic") ||
-                targetText.includes("선크림")||
+                targetText.includes("선크림") ||
                 targetText.includes("serum");
 
             const categoryMatch = categoryTab === 'beauty' ? isBeautyItem : !isBeautyItem;
@@ -152,14 +174,19 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
             const isBeauty = (hasBeautyWord || martName === "K-Beauty" || martName === "Stylevana") && !isFoodException;
 
             // 3. 카테고리 이름 결정 (이제 앞에 [K-Beauty]를 붙이지 않습니다!)
-            let categoryKey = keyword || "기타";
-            if (categoryKey.includes("신라면")) categoryKey = "🍜 신라면 (Shin Ramyun)";
-            else if (categoryKey.includes("불닭")) categoryKey = "🔥 불닭볶음면 (Buldak)";
-            else if (categoryKey.includes("김치")) categoryKey = "🥬 종가집 김치 (Kimchi)";
+            let baseKey = keyword || "기타";
+            if (baseKey.includes("신라면")) baseKey = "🍜 신라면 (Shin Ramyun)";
+            else if (baseKey.includes("불닭")) baseKey = "🔥 불닭볶음면 (Buldak)";
+            else if (baseKey.includes("김치")) baseKey = "🥬 종가집 김치 (Kimchi)";
             else if (isBeauty) {
-                // 뷰티 제품이면 아이콘만 살짝
-                categoryKey = `💄 ${categoryKey.replace(/\[.*?\]/g, '').trim()}`;
+                baseKey = `💄 ${baseKey.replace(/\[.*?\]/g, '').trim()}`;
             }
+
+            // 타입 라벨 결정
+            const typeLabel = obj.packType === 'multi' ? ' (번들)' : ' (낱개)';
+
+            // 최종 키 생성 (중복 선언 방지!)
+            const categoryKey = `${baseKey}${typeLabel}`;
 
             // 4. 데이터 저장 (isBeauty 정보를 함께 넘겨줍니다)
             if (!acc[categoryKey]) acc[categoryKey] = [];
@@ -374,7 +401,7 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                             const timeB = new Date(
                                 Math.max(
                                     ...itemsB.map(
-                                        (i) => new Date(i.updatedAt || 0),), ),
+                                        (i) => new Date(i.updatedAt || 0),),),
                             ).getTime();
 
                             // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
@@ -456,108 +483,85 @@ const PriceComparison = ({ currentLang, onUpdateData }) => {
                                         </div>
                                     </div>
 
-                                    {/* 🛒 상품 목록 */}
-                                    <div className="divide-y divide-slate-100/50">
-                                        {filteredAndGroupedData[category].map(
-                                            (p, idx) => {
-                                                const currentPrice =
-                                                    parseFloat(p.price) || 0;
-                                                const prevPrice = p.prevPrice
-                                                    ? parseFloat(p.prevPrice)
-                                                    : null;
+                                    {/* 🛒 상품 목록: 타입별로 자동 분류 렌더링 */}
+<div className="divide-y divide-slate-100/50">
+    {(() => {
+        const items = filteredAndGroupedData[category] || [];
+        const singles = items.filter(p => p.packType === 'single');
+        const multis = items.filter(p => p.packType === 'multi');
 
-                                                return (
-                                                    <a
-                                                        key={idx}
-                                                        href={p.link}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={() => {
-                                                            window.gtag?.(
-                                                                "event",
-                                                                "click_amazon_product",
-                                                                {
-                                                                    product_name:
-                                                                        p.item, // 예: "고추장", "참기름"
+        const translationMap = {
+            "진라면 순한맛": "Jin Ramen (Mild)",
+            "진라면 매운맛": "Jin Ramen (Spicy)",
+            "짜파게티": "Chapagetti",
+            "불닭볶음면": "Buldak Ramen",
+            "신라면": "Shin Ramyun",
+            // 여기에 더 필요한 상품명을 추가하면 됩니다!
+        };
 
-                                                                    mart_name:
-                                                                        p.mart, // 예: "Amazon", "K-Shop"
-
-                                                                    price: currentPrice, // 클릭 당시 가격
-
-                                                                    category:
-                                                                        category, // 현재 보고 있는 카테고리
-                                                                },
-                                                            );
-                                                        }}
-                                                        className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 ? "bg-amber-50/20" : "bg-white"}`}>
-                                                        <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
-                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
-                                                                {p.mart}
-                                                            </span>
-                                                            <span className="text-sm font-bold text-slate-700">
-    {p.item} 
+        // 내부 렌더링 헬퍼 함수
+        const renderProduct = (p, idx, isBundle = false) => {
+            const currentPrice = parseFloat(p.price) || 0;
+            const prevPrice = p.prevPrice ? parseFloat(p.prevPrice) : null;
+            
+            return (
+                <a
+                    key={`${p.mart}-${p.item}-${idx}`}
+                    href={p.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                        window.gtag?.("event", "click_amazon_product", {
+                            product_name: p.item,
+                            mart_name: p.mart,
+                            price: currentPrice,
+                            category: category,
+                        });
+                    }}
+                    className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 && !isBundle ? "bg-amber-50/20" : "bg-white"}`}
+                >
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">{p.mart}</span>
+                        <span className="text-sm font-bold text-slate-700">
+    {/* ✅ 여기서 언어에 따라 이름을 바꿉니다 */}
+    {currentLang === 'KO' ? p.item : (translationMap[p.item] || p.item)}
+    
     <span className="text-slate-400 font-normal ml-1">
         {p.packSize && `(${p.packSize})`}
     </span>
 </span>
-                                                        </div>
+                    </div>
 
-                                                        <div className="flex items-center gap-3 shrink-0">
-                                                            <div className="text-right flex flex-col items-end">
-                                                                <div className="flex items-center gap-1">
-                                                                    <span
-                                                                        className={`text-lg font-black ${idx === 0 ? "text-amber-600" : "text-slate-800"}`}>
-                                                                        €
-                                                                        {currentPrice.toFixed(
-                                                                            2,
-                                                                        )}
-                                                                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right flex flex-col items-end">
+                            <div className="flex items-center gap-1">
+                                <span className={`text-lg font-black ${idx === 0 && !isBundle ? "text-amber-600" : "text-slate-800"}`}>
+                                    €{currentPrice.toFixed(2)}
+                                </span>
+                                {idx === 0 && !isBundle && <span className="text-sm">🏆</span>}
+                            </div>
+                            {prevPrice && Math.abs(currentPrice - prevPrice) > 0.001 && (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? "text-green-600 bg-green-50" : "text-rose-600 bg-rose-50"}`}>
+                                    {currentPrice < prevPrice ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}` : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </a>
+            );
+        };
 
-                                                                    {idx ===
-                                                                        0 && (
-                                                                            <span className="text-sm">
-                                                                                🏆
-                                                                            </span>
-                                                                        )}
-                                                                </div>
-
-                                                                {prevPrice &&
-                                                                    Math.abs(
-                                                                        currentPrice -
-                                                                        prevPrice,
-                                                                    ) >
-                                                                    0.001 && (
-                                                                        <span
-                                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? "text-green-600 bg-green-50" : "text-rose-600 bg-rose-50"}`}>
-                                                                            {currentPrice <
-                                                                                prevPrice
-                                                                                ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}`
-                                                                                : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
-                                                                        </span>
-                                                                    )}
-                                                            </div>
-
-                                                            <span className="text-slate-300 group-hover:text-indigo-400">
-                                                                <svg
-                                                                    width="14"
-                                                                    height="14"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="3"
-                                                                    strokeLinecap="round"
-                                                                    strokeLinejoin="round">
-                                                                    <path d="M7 17l9.2-9.2M17 17V7H7" />
-                                                                </svg>
-                                                            </span>
-                                                        </div>
-                                                    </a>
-                                                );
-                                            },
-                                        )}
-                                    </div>
-
+        return (
+            <>
+                {/* 1. 낱개 상품 섹션 */}
+                {singles.map((p, idx) => renderProduct(p, idx, false))}
+                
+                {/* 2. 번들 상품 섹션 (구분선 포함) */}
+                {multis.map((p, idx) => renderProduct(p, idx, true))}
+            </>
+        );
+    })()}
+</div>
 
 
                                 </div>

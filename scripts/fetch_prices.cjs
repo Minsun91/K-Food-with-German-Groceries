@@ -60,15 +60,12 @@ async function updatePrices() {
           formats: ["extract"],
           extract: {
             prompt: `You are a strict e-commerce data extractor for "${itemObj.search}".
-- TASK: From the search results, extract exactly ONE 'single' pack and ONE 'multi' (bundle) pack that matches the "Original/Classic" version.
-- SELECTION PRIORITY: 
-    1. Prioritize the plain, classic, or original product version.
-    2. Identify if the product is 'single' or 'multi' (e.g., bundle of 5, pack of 4).
-- NEGATIVE CONSTRAINTS (CRITICAL):
-    1. IGNORE flavor variants (e.g., Tomyum, Toomba, Black, Red, Kimchi, Spicy).
-    2. IGNORE ingredient variants (e.g., Brown Rice, Black Rice, Multi-grain, Germinated).
-    3. IGNORE irrelevant items: If searching for '${itemObj.search}', do not return other brands or unrelated items.
-- OUTPUT: Return a list of products that are 100% relevant. If unsure, return an empty list.`,
+            - TASK: Extract products and identify their weight/size (e.g., 500g, 1kg, 200g).
+            - CATEGORIZATION: 
+                1. If a product is around 500g, mark it as 'single'.
+                2. If it is 1kg or larger, mark it as 'multi' or 'large'.
+            - SELECTION: For each store, pick the best matching 500g version and 1kg version if available.
+            - OUTPUT: Return a list with accurate 'pack_size' (e.g., "500g", "1kg").`,
             schema: {
               type: "object",
               properties: {
@@ -105,20 +102,26 @@ async function updatePrices() {
             const storePackKey = `${mart.name}-${product.type}`;
             if (seenStorePacksInThisLoop.has(storePackKey)) continue;
 
-            newResults.push({
-              item: product.product_name,
-                  price: product.price.toFixed(2),
-                  packType: product.type,
-                  packSize: product.pack_size || "1ea",
-                  mart: mart.name,
-                  link: searchUrl, // 👈 링크 복구했습니다!
-                  searchKeyword: itemObj.ko,
-                  category: `${itemObj.ko} (${product.type === 'multi' ? '번들' : '싱글'})`,
-                  updatedAt: new Date().toISOString()
-                });
+            const isMulti = product.type === 'multi';
+    const displayKeyword = isMulti ? `${itemObj.ko} (번들)` : `${itemObj.ko} (낱개)`;
 
-            seenStorePacksInThisLoop.add(storePackKey);
-          }
+    newResults.push({
+        item: product.product_name,
+        price: product.price.toFixed(2),
+        packType: product.type,
+        packSize: product.pack_size || (isMulti ? "Bundle" : "1ea"),
+        mart: mart.name,
+        link: searchUrl,
+        // searchKeyword를 분리하여 저장해야 나중에 데이터 병합(Merge) 시 
+        // 싱글 가격이 멀티 가격을 덮어쓰지 않습니다.
+        searchKeyword: displayKeyword, 
+        category: displayKeyword,
+        originalItemName: itemObj.ko, // 원본 아이템명 유지용 필드 (선택사항)
+        updatedAt: new Date().toISOString()
+    });
+
+    seenStorePacksInThisLoop.add(storePackKey);
+}
         }
       } catch (e) {
         console.error(`❌ 에러: ${e.message}`);
@@ -126,15 +129,16 @@ async function updatePrices() {
     }
   }
 
-  // 2. 데이터 병합 (newResults 사용)
   const finalData = [
-    ...existingData.filter(old => !newResults.some(n => n.mart === old.mart && n.searchKeyword === old.searchKeyword && n.packType === old.packType)),
+    // 여기서 n.searchKeyword가 이미 '진라면 (번들)' 식으로 구분되어 있으므로 
+    // 자연스럽게 별개의 항목으로 취급되어 병합됩니다.
+    ...existingData.filter(old => !newResults.some(n => n.mart === old.mart && n.searchKeyword === old.searchKeyword)),
     ...newResults.map(newItem => {
-      const oldItem = existingData.find(o => o.mart === newItem.mart && o.searchKeyword === newItem.searchKeyword && o.packType === newItem.packType);
-      if (oldItem) newItem.prevPrice = oldItem.price;
-      return newItem;
+        const oldItem = existingData.find(o => o.mart === newItem.mart && o.searchKeyword === newItem.searchKeyword);
+        if (oldItem) newItem.prevPrice = oldItem.price;
+        return newItem;
     })
-  ];
+];
 
   // 3. 저장
   await db.collection("prices").doc("latest").set({
