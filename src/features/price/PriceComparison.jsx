@@ -146,15 +146,16 @@ const getItemName = (p, lang) => {
             const matchesSearch = searchWords.every(word => targetText.includes(word));
 
             // 💄 뷰티 품목 판별
-            const isBeautyItem = targetText.includes("리들샷") ||
-                targetText.includes("reedle") ||
-                targetText.includes("cosmetic") ||
-                targetText.includes("선크림") ||
-                targetText.includes("serum");
+            const isBeautyItem = p.category === "beauty" ||
+            targetText.includes("리들샷") ||
+            targetText.includes("reedle") ||
+            targetText.includes("cosmetic") ||
+            targetText.includes("선크림") ||
+            targetText.includes("serum");
 
-            const categoryMatch = categoryTab === 'beauty' ? isBeautyItem : !isBeautyItem;
-            return matchesSearch && categoryMatch;
-        });
+const categoryMatch = categoryTab === 'beauty' ? isBeautyItem : !isBeautyItem;
+return matchesSearch && categoryMatch;
+});
 
         const grouped = filtered.reduce((acc, obj) => {
             const itemTitle = obj.item || "";
@@ -171,7 +172,7 @@ const getItemName = (p, lang) => {
                 keyword.toLowerCase().includes(term)
             );
 
-            const isBeauty = (hasBeautyWord || martName === "K-Beauty" || martName === "Stylevana") && !isFoodException;
+            const isBeauty = (obj.category === "beauty" || hasBeautyWord || martName === "K-Beauty" || martName === "Stylevana") && !isFoodException;
 
             // 3. 카테고리 이름 결정 (이제 앞에 [K-Beauty]를 붙이지 않습니다!)
             let baseKey = keyword || "기타";
