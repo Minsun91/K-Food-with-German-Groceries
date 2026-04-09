@@ -133,10 +133,12 @@ const getItemName = (p, lang) => {
 
         // 1. 카테고리 판별 함수 (food 탭 전용)
         const getSubCat = (name) => {
+            const lowerName = (name || "").toLowerCase();
             if (name.match(/김치|만두|돈까스|떡볶이|어묵/)) return 'fresh';
             if (name.match(/쌀|라면|국수|면|가루|전분/)) return 'grain';
             if (name.match(/고추장|된장|간장|소스|오일|가루|참기름/)) return 'sauce';
             if (name.match(/과자|스낵|커피|차|음료|햇반|김/)) return 'snack';
+            if (lowerName.match(/그릴|바베큐|불판|솥|냄비|수저|젓가락|bbq|grill|쿠쿠|cuckoo|cooker|multicooker/)) return 'living';
             return 'etc';
         };
 
@@ -172,15 +174,25 @@ return matchesSearch && categoryMatch;
                 keyword.toLowerCase().includes(term)
             );
 
-            const isBeauty = (obj.category === "beauty" || hasBeautyWord || martName === "K-Beauty" || martName === "Stylevana") && !isFoodException;
+            const isLivingException = itemTitle.toLowerCase().match(/그릴|bbq|grill|불판/);
+            const isBeauty = (
+                obj.category === "beauty" || 
+                (hasBeautyWord && !isLivingException) || // 생활용품 단어가 없을 때만 뷰티로 인정
+                martName === "K-Beauty" || 
+                martName === "Stylevana"
+            ) && !isFoodException;
 
-            // 3. 카테고리 이름 결정 (이제 앞에 [K-Beauty]를 붙이지 않습니다!)
+            // 3. 카테고리 이름 결정
             let baseKey = keyword || "기타";
             if (baseKey.includes("신라면")) baseKey = "🍜 신라면 (Shin Ramyun)";
             else if (baseKey.includes("불닭")) baseKey = "🔥 불닭볶음면 (Buldak)";
             else if (baseKey.includes("김치")) baseKey = "🥬 종가집 김치 (Kimchi)";
             else if (isBeauty) {
                 baseKey = `💄 ${baseKey.replace(/\[.*?\]/g, '').trim()}`;
+            }
+            // 🔥 생활용품(Living) 아이콘 추가 로직
+            else if (getSubCat(baseKey) === 'living') {
+                baseKey = `🍳 ${baseKey.trim()}`; 
             }
 
             // 타입 라벨 결정
@@ -373,7 +385,7 @@ return matchesSearch && categoryMatch;
                         placeholder={
                             categoryTab === 'food'
                                 ? (currentLang === 'ko' ? "식품 검색 (예: 신라면, 김치)" : "Search food...")
-                                : (currentLang === 'ko' ? "뷰티 검색 (예: 세럼럼, 선크림)" : "Search beauty...")
+                                : (currentLang === 'ko' ? "뷰티 검색 (예: 세럼, 선크림)" : "Search beauty...")
                         }
                         className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 outline-none transition-all text-sm font-medium"
                     />

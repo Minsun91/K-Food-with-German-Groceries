@@ -158,20 +158,23 @@ export const FOOD_CATEGORIES = {
         { id: 'fresh', label: '신선·냉동', emoji: '❄️' },
         { id: 'grain', label: '쌀·면·가루', emoji: '🌾' },
         { id: 'sauce', label: '양념·소스', emoji: '🍯' },
-        { id: 'snack', label: '간식·음료', emoji: '🥤' }
+        { id: 'snack', label: '간식·음료', emoji: '🥤' },
+        { id: 'living', label: '생활·주방', emoji: '🍳' } // 🔥 추가
     ],
     en: [
         { id: 'all', label: 'All', emoji: '🍱' },
         { id: 'fresh', label: 'Fresh/Frozen', emoji: '❄️' },
         { id: 'grain', label: 'Grain/Flour', emoji: '🌾' },
         { id: 'sauce', label: 'Sauce/Oil', emoji: '🍯' },
-        { id: 'snack', label: 'Snack/Drink', emoji: '🥤' }
+        { id: 'snack', label: 'Snack/Drink', emoji: '🥤' },
+        { id: 'living', label: 'Living/Kitchen', emoji: '🍳' } // 🔥 추가
     ],
     de: [
         { id: 'all', label: 'Alle', emoji: '🍱' },
         { id: 'fresh', label: 'Frisch & Tiefkühl', emoji: '❄️' },
         { id: 'grain', label: 'Reis & Nudeln', emoji: '🌾' },
         { id: 'sauce', label: 'Saucen & Gewürze', emoji: '🍯' },
-        { id: 'snack', label: 'Snacks & Getränke', emoji: '🥤' }
+        { id: 'snack', label: 'Snacks & Getränke', emoji: '🥤' },
+        { id: 'living', label: 'Wohnen & Küche', emoji: '🍳' } // 🔥 추가
     ], 
 }
