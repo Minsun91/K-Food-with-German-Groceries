@@ -54,15 +54,14 @@ const targetItems = [
   { ko: "참이슬", search: "Chamisul Soju", brand: "Jinro" },
   { ko: "오뚜기 당면", search: "Ottogi Dangmyeon", brand: "Ottogi" },
 
-  // --- 추가 뷰티 (10개) ---
-  { ko: "코스알엑스 굿모닝 클렌저", search: "COSRX Low pH Good Morning Gel Cleanser", brand: "COSRX" },
   { ko: "코스알엑스 스네일 에센스", search: "COSRX Advanced Snail 96 Mucin Power Essence", brand: "COSRX" },
   { ko: "이니스프리 그린티 세럼", search: "Innisfree Green Tea Seed Serum", brand: "Innisfree" },
   { ko: "아누아 어성초 토너", search: "Anua Heartleaf 77 Toner", brand: "Anua" },
   { ko: "라운드랩 독도 토너", search: "Round Lab 1025 Dokdo Toner", brand: "Round Lab" },
-  { ko: "메디힐 마스크팩", search: "Mediheal Sheet Mask", brand: "Mediheal" },
   { ko: "라네즈 립 마스크", search: "Laneige Lip Sleeping Mask", brand: "Laneige" },
-  { ko: "닥터자르트 시카페어", search: "Dr.Jart Cicapair Cream", brand: "Dr.Jart" }
+  { ko: "닥터자르트 시카페어", search: "Dr.Jart Cicapair Cream", brand: "Dr.Jart" },
+  { ko: "SKIN1004 마다가스카르 센텔라 앰플", search: "SKIN1004 Madagascar Centella Ampoule", brand: "SKIN1004" },
+{ ko: "조선미녀 인삼 아이세럼", search: "Beauty of Joseon Eye Serum", brand: "Beauty of Joseon" }
 ];
 
 
@@ -85,11 +84,9 @@ async function updatePrices(mode = "food") {
 
   // 루프 시작
   for (const itemObj of targetItems) {
-    // [판별 로직] 아이템명에 뷰티 브랜드가 포함되어 있는지 확인
-    const beautyBrands = ["코스알엑스", "이니스프리", "아누아", "라운드랩", "메디힐", "라네즈", "닥터자르트"];
+    const beautyBrands = ["코스알엑스", "이니스프리", "아누아", "라운드랩", "라네즈", "닥터자르트", "SKIN1004", "조선미녀"];
     const isItemBeauty = beautyBrands.some(brand => itemObj.ko.includes(brand));
     
-    // 현재 모드와 맞지 않는 아이템은 스킵
     if (isBeautyMode && !isItemBeauty) continue;
     if (!isBeautyMode && isItemBeauty) continue;
 
