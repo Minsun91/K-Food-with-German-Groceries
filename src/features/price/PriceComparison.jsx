@@ -398,29 +398,29 @@ return matchesSearch && categoryMatch;
                     Object.keys(filteredAndGroupedData)
 
                         .sort((a, b) => {
-                            if (a === "기타") return 1;
-                            if (b === "기타") return -1;
-                            const itemsA = filteredAndGroupedData[a];
-                            const itemsB = filteredAndGroupedData[b];
-                            // 2. 각 카테고리에서 가장 최근 업데이트된 시간을 가져옴
-                            const timeA = new Date(
-                                Math.max(
-                                    ...itemsA.map(
-                                        (i) => new Date(i.updatedAt || 0),
-                                    ),
-                                ),
-                            ).getTime();
+    // 1. "기타" 카테고리는 항상 맨 아래로
+    if (a === "기타") return 1;
+    if (b === "기타") return -1;
 
-                            const timeB = new Date(
-                                Math.max(
-                                    ...itemsB.map(
-                                        (i) => new Date(i.updatedAt || 0),),),
-                            ).getTime();
+    const itemsA = filteredAndGroupedData[a];
+    const itemsB = filteredAndGroupedData[b];
 
-                            // 3. 🌟 최신 업데이트순 정렬 (최신이 위로)
+    // 2. 각 카테고리의 가장 최신 업데이트 시간 계산
+    const latestA = Math.max(...itemsA.map((i) => new Date(i.updatedAt || 0).getTime()));
+    const latestB = Math.max(...itemsB.map((i) => new Date(i.updatedAt || 0).getTime()));
 
-                            return timeB - timeA;
-                        })
+    // 3. 🌟 NEW 상태(48시간 이내) 여부 확인
+    const isNewA = Date.now() - latestA < 48 * 60 * 60 * 1000;
+    const isNewB = Date.now() - latestB < 48 * 60 * 60 * 1000;
+
+    // 4. 🔥 정렬 우선순위 적용
+    // 둘 중 하나만 NEW라면 NEW인 쪽을 위로 올림
+    if (isNewA && !isNewB) return -1;
+    if (!isNewA && isNewB) return 1;
+
+    // 둘 다 NEW이거나 둘 다 NEW가 아니라면, 더 최근에 업데이트된 순서대로 정렬
+    return latestB - latestA;
+})
 
                         .map((category) => {
                             const items = filteredAndGroupedData[category];
