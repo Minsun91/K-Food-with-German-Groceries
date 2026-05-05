@@ -14,30 +14,31 @@ const db = admin.firestore();
 const app = new FirecrawlApp({ apiKey: FIRECRAWL_API_KEY });
 
 const marts = [
-  // { name: "한독몰", url: "https://handokmall.de/search?q=" },
-  // { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
-  // { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
-  // { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
-  // { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" },
-  { name: "momogo", url: "https://www.momogo.de/search?q=" } // keywords 대신 q 사용 확인 필요
+  { name: "한독몰", url: "https://handokmall.de/search?q=" },
+  { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
+  { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
+  { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
+  // { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
+  { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" },
+  // { name: "momogo", url: "https://www.momogo.de/search?q=",suffix: "&lang=en" }
 ];
 
-
+const beautyMarts = [
+  { name: "Stylevana", url: "https://www.stylevana.com/de_DE/catalogsearch/result/?q=" },
+  { name: "Douglas", url: "https://www.douglas.de/de/search?q=" },
+  { name: "Flaconi", url: "https://www.flaconi.de/search/?q=" }
+];
 
 const targetItems = [
-  // --- 기존 리스트 ---
-  { ko: "진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" },
-  { ko: "종가집 김치", search: "Jongga Mat Kimchi", brand: "Jongga" },
-  { ko: "불닭볶음면", search: "Samyang Buldak Original", brand: "Samyang" },
-  { ko: "짜파게티", search: "Nongshim Chapagetti", brand: "Nongshim" },
-  { ko: "CJ 햇반", search: "CJ Hetbahn", brand: "CJ" },
-  { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen", brand: "Beauty of Joseon" },
-  { ko: "맥심 모카골드", search: "Maxim Mocha Gold Mix", brand: "Maxim" },
-  { ko: "김포쌀", search: "Gimpo Rice 9.07kg", brand: "Gimpo" },
-
-  // --- 추가 푸드 (20개) ---
-  { ko: "너구리", search: "Nongshim Neoguri", brand: "Nongshim" },
+  // { ko: "진라면 순한맛", search: "Ottogi Jin Ramen Mild", brand: "Ottogi" },
+  // { ko: "종가집 김치", search: "Jongga Mat Kimchi", brand: "Jongga" },
+  // { ko: "불닭볶음면", search: "Samyang Buldak Original", brand: "Samyang" },
+  // { ko: "짜파게티", search: "Nongshim Chapagetti", brand: "Nongshim" },
+  // { ko: "CJ 햇반", search: "CJ Hetbahn", brand: "CJ" },
+  // { ko: "조선미녀 선크림", search: "Beauty of Joseon Sunscreen", brand: "Beauty of Joseon" },
+  // { ko: "맥심 모카골드", search: "Maxim Mocha Gold Mix", brand: "Maxim" },
+  // { ko: "김포쌀", search: "Gimpo Rice 9.07kg", brand: "Gimpo" },
+  { ko: "너구리 라면", search: "Nongshim Neoguri", brand: "Nongshim" },
   { ko: "신라면", search: "Nongshim Shin Ramyun", brand: "Nongshim" },
   { ko: "안성탕면", search: "Nongshim Ansungtangmyun", brand: "Nongshim" },
   { ko: "팔도 비빔면", search: "Paldo Bibimmyeon", brand: "Paldo" },
@@ -50,11 +51,7 @@ const targetItems = [
   { ko: "동원 참치", search: "Dongwon Tuna", brand: "Dongwon" },
   { ko: "오뚜기 카레", search: "Ottogi Curry", brand: "Ottogi" },
   { ko: "오뚜기 미역", search: "Ottogi Dried Seaweed", brand: "Ottogi" },
-  { ko: "종가집 깍두기", search: "Jongga Kkakdugi", brand: "Jongga" },
-  { ko: "빙그레 바나나우유", search: "Binggrae Banana Milk", brand: "Binggrae" },
   { ko: "참이슬", search: "Chamisul Soju", brand: "Jinro" },
-  { ko: "농심 새우깡", search: "Nongshim Shrimp Crackers", brand: "Nongshim" },
-  { ko: "해태 갈아만든 배", search: "Haitai Pear Juice", brand: "Haitai" },
   { ko: "오뚜기 당면", search: "Ottogi Dangmyeon", brand: "Ottogi" },
 
   // --- 추가 뷰티 (10개) ---
@@ -69,40 +66,55 @@ const targetItems = [
 ];
 
 
-async function updatePrices() {
+async function updatePrices(mode = "food") {
+  const isBeautyMode = mode === "beauty";
+  const targetMarts = isBeautyMode ? beautyMarts : marts;
+  const collectionName = isBeautyMode ? "beauty_prices" : "prices";
+
+  console.log(`🚀 [${mode.toUpperCase()}] 업데이트 시작...`);
+
   let newResults = [];
   let existingData = [];
 
   try {
-    const doc = await db.collection("prices").doc("latest").get();
+    const doc = await db.collection(collectionName).doc("latest").get();
     if (doc.exists) existingData = doc.data().data || [];
   } catch (e) {
-    console.log("기존 데이터 로드 실패(정상일 수 있음)");
+    console.log(`${mode} 데이터 로드 실패(정상)`);
   }
 
-  // 1. 크롤링 시작 (for...of 사용으로 스코프 안정화)
+  // 루프 시작
   for (const itemObj of targetItems) {
+    // [판별 로직] 아이템명에 뷰티 브랜드가 포함되어 있는지 확인
+    const beautyBrands = ["코스알엑스", "이니스프리", "아누아", "라운드랩", "메디힐", "라네즈", "닥터자르트"];
+    const isItemBeauty = beautyBrands.some(brand => itemObj.ko.includes(brand));
+    
+    // 현재 모드와 맞지 않는 아이템은 스킵
+    if (isBeautyMode && !isItemBeauty) continue;
+    if (!isBeautyMode && isItemBeauty) continue;
+
     const seenStorePacksInThisLoop = new Set();
 
-    for (const mart of marts) {
+    for (const mart of targetMarts) {
       try {
-        const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}`;
-        console.log(`🚀 [${mart.name}] 분석 중: ${itemObj.ko}`);
+        const searchUrl = `${mart.url}${encodeURIComponent(itemObj.search)}${mart.suffix || ""}`;
+        console.log(`🔍 [${mart.name}] 분석 중: ${itemObj.ko}`);
 
         const scrapeResult = await app.scrapeUrl(searchUrl, {
           formats: ["extract"],
           extract: {
-            prompt: `You are a precision e-commerce data extractor.
-- TARGET ITEM: "${itemObj.search}"
-- STRICT FILTER: Extract ONLY the products that directly match the target item.
-- EXCLUSION: If the target is "Ramen", ignore dumplings, fried rice, sauce-only, or snacks of the same brand.
-- TASK:
-    1. Identify the product name and current price.
-    2. Determine 'pack_size' (e.g., "120g", "5x120g", "1kg").
-    3. Categorize 'type':
-        - 'single': Individual pack or bottle.
-        - 'multi': Bundles (e.g., 4-pack, 5-pack) or bulk cases.
-- DATA QUALITY: Return only the most relevant results (max 2-3 items per store) to avoid noise.`,
+            prompt: `You are a precision e-commerce data extractor for a German store.
+            - TARGET ITEM: "${itemObj.search}"
+            - LANGUAGE: The site is in German. 
+                * "Stück" or "Stk" means "pcs" (Single).
+                * "Packung" or "Pkg" usually means "Pack".
+                * "5er Pack" or "5x120g" means "Bundle" (Multi).
+            - TASK: Translate product names and units into English for the output.
+            - EXCLUSION: Ignore unrelated variants like "Dumplings" when searching for "Ramen".
+            - CATEGORIZE: 
+                1. 'single': Individual item.
+                2. 'multi': Bundles/multipacks.
+            - OUTPUT: Return accurate 'product_name', 'price', 'type', and 'pack_size'.`,
             schema: {
               type: "object",
               properties: {
@@ -125,40 +137,32 @@ async function updatePrices() {
         });
 
         if (scrapeResult.success && scrapeResult.extract?.products) {
-          // for...of를 사용하여 변수 스코프 문제 원천 차단
           for (const product of scrapeResult.extract.products) {
-            
-            // 필터링
             const isVariant = /현미|흑미|잡곡|발아|Broken|Sushi|Tomyum|Toomba|포기|총각|열무|갓김치|Pa-Kimchi/i.test(product.product_name);
             if (isVariant) continue;
             
-            if (itemObj.brand && !product.product_name.toLowerCase().includes(itemObj.brand.toLowerCase())) {
-              continue;
-            }
+            if (itemObj.brand && !product.product_name.toLowerCase().includes(itemObj.brand.toLowerCase())) continue;
 
             const storePackKey = `${mart.name}-${product.type}`;
             if (seenStorePacksInThisLoop.has(storePackKey)) continue;
 
             const isMulti = product.type === 'multi';
-    const displayKeyword = isMulti ? `${itemObj.ko} (번들)` : `${itemObj.ko} (낱개)`;
 
-    newResults.push({
-        item: product.product_name,
-        price: product.price.toFixed(2),
-        packType: product.type,
-        packSize: product.pack_size || (isMulti ? "Bundle" : "1ea"),
-        mart: mart.name,
-        link: searchUrl,
-        // searchKeyword를 분리하여 저장해야 나중에 데이터 병합(Merge) 시 
-        // 싱글 가격이 멀티 가격을 덮어쓰지 않습니다.
-        searchKeyword: displayKeyword, 
-        category: displayKeyword,
-        originalItemName: itemObj.ko, // 원본 아이템명 유지용 필드 (선택사항)
-        updatedAt: new Date().toISOString()
-    });
+            newResults.push({
+              item: product.product_name,
+              price: product.price.toFixed(2),
+              packType: product.type,
+              packSize: product.pack_size || (isMulti ? "Bundle" : "1ea"),
+              mart: mart.name,
+              link: searchUrl,
+              searchKeyword: itemObj.ko, 
+              category: isBeautyMode ? "beauty" : (isMulti ? `${itemObj.ko} (번들)` : `${itemObj.ko} (낱개)`),
+              originalItemName: itemObj.ko,
+              updatedAt: new Date().toISOString()
+            });
 
-    seenStorePacksInThisLoop.add(storePackKey);
-}
+            seenStorePacksInThisLoop.add(storePackKey);
+          }
         }
       } catch (e) {
         console.error(`❌ 에러: ${e.message}`);
@@ -167,22 +171,25 @@ async function updatePrices() {
   }
 
   const finalData = [
-    // 여기서 n.searchKeyword가 이미 '진라면 (번들)' 식으로 구분되어 있으므로 
-    // 자연스럽게 별개의 항목으로 취급되어 병합됩니다.
-    ...existingData.filter(old => !newResults.some(n => n.mart === old.mart && n.searchKeyword === old.searchKeyword)),
+    ...existingData.filter(old => !newResults.some(n => n.mart === old.mart && n.category === old.category)),
     ...newResults.map(newItem => {
-        const oldItem = existingData.find(o => o.mart === newItem.mart && o.searchKeyword === newItem.searchKeyword);
+        const oldItem = existingData.find(o => o.mart === newItem.mart && o.category === newItem.category);
         if (oldItem) newItem.prevPrice = oldItem.price;
         return newItem;
     })
-];
+  ];
 
-  // 3. 저장
-  await db.collection("prices").doc("latest").set({
+  await db.collection(collectionName).doc("latest").set({
     data: finalData,
     lastGlobalUpdate: new Date().toISOString()
   });
-  console.log(`✨ 저장 완료! 총 ${finalData.length}개.`);
+
+  console.log(`✨ [${mode.toUpperCase()}] 저장 완료!`);
 }
 
-updatePrices();
+async function start() {
+  await updatePrices("food"); 
+  await updatePrices("beauty"); 
+}
+
+start();
