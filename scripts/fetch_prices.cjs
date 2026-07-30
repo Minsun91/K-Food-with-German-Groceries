@@ -18,9 +18,9 @@ const marts = [
   { name: "와이마트", url: "https://www.y-mart.de/de/search?q=" },
   { name: "코켓", url: "https://kocket.de/search?options%5Bprefix%5D=last&q=" },
   { name: "K-Shop", url: "https://k-shop.eu/search?q=" },
-  // { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
+  { name: "Joybuy", url: "https://www.joybuy.de/s?k=" },
   { name: "GoAsia", url: "https://goasia.net/en/suche?controller=search&s=" },
-  // { name: "momogo", url: "https://www.momogo.de/search?q=",suffix: "&lang=en" }
+  { name: "momogo", url: "https://www.momogo.de/search?q=",suffix: "&lang=en" }
 ];
 
 const beautyMarts = [

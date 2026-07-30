@@ -19,7 +19,8 @@
         "next": "^16.1.1",
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
-        "react-router-dom": "^7.13.0"
+        "react-router-dom": "^7.13.0",
+        "swiper": "^14.0.7"
     },
     "devDependencies": {
         "@types/react": "^18.3.3",

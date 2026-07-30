@@ -1,607 +1,518 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../../utils/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { shareToKakao, shareToWhatsApp } from '../../utils/share';
-import ReportPriceForm from '../price/ReportPriceForm';
-import { langConfig, FOOD_CATEGORIES, DELIVERY_INFO } from '../../constants/langConfig';
+import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../utils/firebase"; 
+import { shareToKakao, shareToWhatsApp } from "../../utils/share";
+import { langConfig } from '../../constants/langConfig';
 
-const MART_NAMES_EN = {
-    한독몰: "Handok Mall",
-    코켓: "Kocket",
-    와이마트: "Y-Mart",
-    아마존: "Amazon",
-    다와요: "Dawayo",
-    "K-shop": "K-shop",
-    JoyBuy: "JoyBuy",
-    GoAsia: "GoAsia",
-};
+const MARTS = [
+  { id: "handokmall", name: "한독몰", color: "bg-blue-500" },
+  { id: "ymart", name: "와이마트", color: "bg-yellow-500" },
+  { id: "kocket", name: "코켓", color: "bg-orange-500" },
+  { id: "kshop", name: "K-Shop", color: "bg-green-600" },
+  { id: "joybuy", name: "Joybuy", color: "bg-indigo-500" },
+  { id: "goasia", name: "GoAsia", color: "bg-red-500" },
+  { id: "momogo", name: "momogo", color: "bg-teal-500" },
+  { id: "stylevana", name: "Stylevana", color: "bg-pink-500" },
+  { id: "douglas", name: "Douglas", color: "bg-emerald-600" },
+  { id: "flaconi", name: "Flaconi", color: "bg-purple-500" },
+  { id: "sephora", name: "Sephora", color: "bg-slate-900" },
+];
 
-const PriceComparison = ({ currentLang, onUpdateData }) => {
-    const [categoryTab, setCategoryTab] = useState("food"); // 'food' 또는 'beauty'
-    const [prices, setPrices] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
-    const [selectedSubCategory, setSelectedSubCategory] = useState('all');
-       
-    const translationMap = {
-        "진라면 순한맛": "Jin Ramen (Mild)",
-        "진라면 매운맛": "Jin Ramen (Spicy)",
-        "짜파게티": "Chapagetti",
-        "불닭볶음면": "Buldak Ramen",
-        "신라면": "Shin Ramyun",
-    };
+// 🔥 living 카테고리 적용 및 키워드 보완
+const SUB_CATEGORIES = [
+  { id: "all", name: "전체", emoji: "🏷️" },
+  { id: "noodle", name: "라면", emoji: "🍜", keywords: ["라면", "면", "udon", "noodle", "ramen"] },
+  { id: "rice", name: "쌀/곡류", emoji: "🌾", keywords: ["쌀", "햇반", "밥", "rice"] },
+  { id: "sauce", name: "소스/양념", emoji: "🥫", keywords: ["장", "고추장", "된장", "간장", "소스", "sauce", "paste"] },
+  { id: "snack", name: "스낵/간식", emoji: "🍪", keywords: ["스낵", "과자", "파이", "초코", "snack", "chip"] },
+  { id: "living", name: "가전", emoji: "🔌", keywords: ["밥솥", "쿠쿠", "쿠첸", "가전", "포트", "cooker"] },
+];
 
-    // Firebase 데이터 로드
-    useEffect(() => {
-        const unsubscribe = onSnapshot(
-            doc(db, "prices", "latest"),
-            (snapshot) => {
-                if (snapshot.exists()) {
-                    const data = snapshot.data();
-                    const rawData = data.data || [];
-                    const cleanData = rawData.filter(
-                        (p) => p.item && p.price && p.price !== "0",
-                    );
-                    setPrices(cleanData);
-                    if (data.lastGlobalUpdate && onUpdateData) {
-                        const timeString = new Date(
-                            data.lastGlobalUpdate,
-                        ).toLocaleString();
-                        onUpdateData(timeString);
-                    }
-                }
-                setLoading(false);
-            },
-        );
-        return () => unsubscribe();
-    }, [onUpdateData]);
-
-
-    // 검색어 자동 스크롤 로직 (기존 유지)
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const tabParam = params.get('tab');       // 'beauty' 또는 'food'
-        const searchQuery = params.get("search"); // 예: "달바"
-        const langParam = params.get('lang');
-
-        // 🌟 [STEP 1] 탭 전환을 최우선으로 실행 (뷰티 탭으로 먼저 가야 뷰티 상품이 보임!)
-        if (tabParam && categoryTab !== tabParam) {
-            setCategoryTab(tabParam);
-            // 탭이 바뀌면 리렌더링이 일어나므로, 검색 로직은 다음 cycle에서 prices와 함께 체크됨
-        }
-
-        if (langParam) {
-            // setCurrentLang(langParam); // 언어 설정 로직이 있다면 추가
-        }
-
-        // 🌟 [STEP 2] 탭이 올바르게 설정된 상태에서 검색어 처리
-        if (searchQuery && !hasAutoScrolled && prices.length > 0) {
-            // 검색어에서 혹시 모를 이모지나 공백 제거
-            const cleanQuery = decodeURIComponent(searchQuery).replace(/[💄🛒🍜🔥🥬✨]/g, '').trim();
-
-            setSearchTerm(cleanQuery);
-
-            // 검색어가 적용되어 화면이 바뀔 시간을 줌
-            const scrollTimeout = setTimeout(() => {
-                const searchElement = document.querySelector(".search-bar-anchor");
-                if (searchElement) {
-                    searchElement.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                    });
-                }
-                setHasAutoScrolled(true);
-            }, 1000); // 탭 전환 시간을 고려해 조금 더 넉넉하게 설정
-
-            return () => clearTimeout(scrollTimeout);
-        }
-    }, [prices, hasAutoScrolled, categoryTab]); // categoryTab을 의존성에 추가하여 탭 변경 후 다시 실행되게 함
-
-    const currentDelivery = useMemo(() => {
-        if (!prices || prices.length === 0) return { mart: '-', price: 0 };
-
-        // 배송비 정보가 있는 품목들만 추려서 가장 낮은 배송비 찾기
-        const deliverySpeeds = prices
-            .filter(p => p.deliveryFee !== undefined)
-            .sort((a, b) => a.deliveryFee - b.deliveryFee);
-
-        return deliverySpeeds.length > 0
-            ? { mart: deliverySpeeds[0].mart, price: deliverySpeeds[0].deliveryFee }
-            : { mart: '기본', price: 5.99 };
-    }, [prices]);
-
-    // 🌟 핵심: 데이터 필터링 및 [식품/뷰티] 자동 분류 로직
-    const filteredAndGroupedData = useMemo(() => {
-        const searchWords = searchTerm.toLowerCase().split(/[+\s]+/).filter(w => w.length > 0);
-
-        // 상품 이름을 결정하는 로직
-const getItemName = (p, lang) => {
-    if (lang === 'KO') return p.item; // 한국어면 그대로 출력
-
-    // 영어/독어일 때 바꿀 규칙 (Mapping)
-    const translationMap = {
-        "진라면 순한맛": "Jin Ramen (Mild)",
-        "진라면 매운맛": "Jin Ramen (Spicy)",
-        "짜파게티": "Chapagetti",
-        "불닭볶음면": "Buldak Ramen"
-    };
-
-    // 매칭되는 영문명이 있으면 그걸 쓰고, 없으면 원래 이름 출력
-    return translationMap[p.item] || p.item;
-};
-
-        // 1. 카테고리 판별 함수 (food 탭 전용)
-        const getSubCat = (name) => {
-            const lowerName = (name || "").toLowerCase();
-            if (name.match(/김치|만두|돈까스|떡볶이|어묵/)) return 'fresh';
-            if (name.match(/쌀|라면|국수|면|가루|전분/)) return 'grain';
-            if (name.match(/고추장|된장|간장|소스|오일|가루|참기름/)) return 'sauce';
-            if (name.match(/과자|스낵|커피|차|음료|햇반|김/)) return 'snack';
-            if (lowerName.match(/그릴|바베큐|불판|솥|냄비|수저|젓가락|bbq|grill|쿠쿠|cuckoo|cooker|multicooker/)) return 'living';
-            return 'etc';
-        };
-
-        // 2. 전체 필터링 (검색어 + 탭 구분)
-        const filtered = prices.filter(p => {
-            const targetText = `${p.item} ${p.mart} ${p.searchKeyword || ""}`.toLowerCase();
-            const matchesSearch = searchWords.every(word => targetText.includes(word));
-
-            // 💄 뷰티 품목 판별
-            const isBeautyItem = p.category === "beauty" ||
-            targetText.includes("리들샷") ||
-            targetText.includes("reedle") ||
-            targetText.includes("cosmetic") ||
-            targetText.includes("선크림") ||
-            targetText.includes("serum");
-
-const categoryMatch = categoryTab === 'beauty' ? isBeautyItem : !isBeautyItem;
-return matchesSearch && categoryMatch;
-});
-
-        const grouped = filtered.reduce((acc, obj) => {
-            const itemTitle = obj.item || "";
-            const keyword = obj.searchKeyword || "";
-            const martName = obj.mart || "";
-
-            // 1. 깐깐한 뷰티 키워드 리스트
-            const beautyTerms = ["serum", "sunscreen", "shot", "mist", "cream", "d'alba", "리들샷", "미스트", "세럼", "달바", "화장품"];
-
-            // 2. 뷰티 판별 (김치/라면/불닭은 무조건 제외하는 방어 로직 포함)
-            const isFoodException = keyword.includes("김치") || keyword.includes("라면") || keyword.includes("불닭");
-            const hasBeautyWord = beautyTerms.some(term =>
-                itemTitle.toLowerCase().includes(term) ||
-                keyword.toLowerCase().includes(term)
-            );
-
-            const isLivingException = itemTitle.toLowerCase().match(/그릴|bbq|grill|불판/);
-            const isBeauty = (
-                obj.category === "beauty" || 
-                (hasBeautyWord && !isLivingException) || // 생활용품 단어가 없을 때만 뷰티로 인정
-                martName === "K-Beauty" || 
-                martName === "Stylevana"
-            ) && !isFoodException;
-
-            // 3. 카테고리 이름 결정
-            let baseKey = keyword || "기타";
-            if (baseKey.includes("신라면")) baseKey = "🍜 신라면 (Shin Ramyun)";
-            else if (baseKey.includes("불닭")) baseKey = "🔥 불닭볶음면 (Buldak)";
-            else if (baseKey.includes("김치")) baseKey = "🥬 종가집 김치 (Kimchi)";
-            else if (isBeauty) {
-                baseKey = `💄 ${baseKey.replace(/\[.*?\]/g, '').trim()}`;
-            }
-            // 🔥 생활용품(Living) 아이콘 추가 로직
-            else if (getSubCat(baseKey) === 'living') {
-                baseKey = `🍳 ${baseKey.trim()}`; 
-            }
-
-            // 타입 라벨 결정
-            const typeLabel = obj.packType === 'multi' ? ' (번들)' : ' (낱개)';
-
-            // 최종 키 생성 (중복 선언 방지!)
-            const categoryKey = `${baseKey}${typeLabel}`;
-
-            // 4. 데이터 저장 (isBeauty 정보를 함께 넘겨줍니다)
-            if (!acc[categoryKey]) acc[categoryKey] = [];
-
-            // 개별 아이템에 뷰티 여부를 태깅해서 나중에 쓸 수 있게 합니다.
-            acc[categoryKey].push({ ...obj, isBeauty });
-
-            return acc;
-        }, {});
-
-        // 4. ✨ 식품 탭일 때만 서브 카테고리 필터링 적용
-        let finalGrouped = grouped;
-        if (categoryTab === 'food' && selectedSubCategory !== 'all') {
-            finalGrouped = Object.keys(grouped)
-                .filter(key => getSubCat(key) === selectedSubCategory)
-                .reduce((obj, key) => {
-                    obj[key] = grouped[key];
-                    return obj;
-                }, {});
-        }
-
-        // 5. 가격 정렬 및 최저/최고가 계산
-        Object.keys(finalGrouped).forEach(key => {
-            finalGrouped[key].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-            const minP = parseFloat(finalGrouped[key][0].price);
-            const maxP = parseFloat(finalGrouped[key][finalGrouped[key].length - 1].price);
-
-            finalGrouped[key] = finalGrouped[key].map(item => ({
-                ...item,
-                minPrice: minP,
-                maxPrice: maxP
-            }));
-        });
-
-        return finalGrouped;
-    }, [prices, searchTerm, categoryTab, selectedSubCategory]);
-
-
-    if (loading)
-        return (
-            <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse">
-                Lade Preise...
-            </div>
-        );
-    const searchTexts =
-        langConfig[currentLang]?.search || langConfig["ko"].search;
-
-    return (
-        <div className="w-full bg-white animate-in fade-in duration-500">
-            {/* 🚚 1. 배송비 정보 상단 바 */}
-            <div className="w-full bg-white py-3 border-b border-slate-100 overflow-hidden relative group">
-                <div className="flex whitespace-nowrap animate-marquee group-hover:pause">
-                    {currentDelivery.length > 0 &&
-                        [...currentDelivery, ...currentDelivery].map(
-                            (info, i) => {
-                                const getDotColor = (name) => {
-                                    if (!name) return "bg-slate-400";
-                                    const lowerName = name.toLowerCase();
-                                    if (
-                                        lowerName.includes("다와요") ||
-                                        lowerName.includes("dawayo")
-                                    )
-                                        return "bg-red-400";
-                                    if (lowerName.includes("y-mart"))
-                                        return "bg-blue-400";
-                                    if (
-                                        lowerName.includes("한독몰") ||
-                                        lowerName.includes("handok")
-                                    )
-                                        return "bg-pink-500";
-                                    if (lowerName.includes("kocket"))
-                                        return "bg-indigo-600";
-                                    if (lowerName.includes("k-shop"))
-                                        return "bg-blue-500";
-                                    if (lowerName.includes("joybuy"))
-                                        return "bg-red-500";
-                                    if (lowerName.includes("goasia"))
-                                        return "bg-red-700";
-                                    return "bg-slate-400";
-                                }; // 마트별 색상 매핑
-
-                                return (
-                                    <div
-                                        key={i}
-                                        className="flex items-center gap-2 mx-6 shrink-0">
-                                        <span
-                                            className={`w-2 h-2 rounded-full shadow-sm ${getDotColor(info.name)}`}
-                                        />
-                                        <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
-                                            {info.name}
-                                        </span>
-                                        <span className="text-[11px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md">
-                                            {info.info}
-                                        </span>
-                                        <span className="text-slate-200 text-xs ml-4">
-                                            |
-                                        </span>
-                                    </div>
-                                );
-                            },
-                        )}
-                </div>
-
-                <style
-                    dangerouslySetInnerHTML={{
-                        __html: `
-        @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-            display: flex;
-            animation: marquee 20s linear infinite; /* 속도를 조금 더 여유롭게 조정 */
-        }
-        .group:hover .animate-marquee {
-            animation-play-state: paused;
-        }
-    `,
-                    }}
-                />
-            </div>
-
-            {/* 💄 2. [식품 / 뷰티] 카테고리 전환 탭 */}
-            <div className="flex justify-center mt-6 mb-2">
-                <div className="inline-flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
-                    {/* 한국 식품 탭 */}
-                    <button
-                        onClick={() => {
-                            setCategoryTab('food');
-                            setSelectedSubCategory('all'); // 서브 카테고리 초기화
-                            setSearchTerm("");
-                        }}
-                        className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'food' ? 'bg-white shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        🛒 {currentLang === 'ko' ? '한국 식품' : 'K-Food'}
-                    </button>
-
-                    {/* K-뷰티 탭 */}
-                    <button
-                        onClick={() => {
-                            setCategoryTab('beauty');
-                            setSelectedSubCategory('all'); // 서브 카테고리 초기화
-                            setSearchTerm("");
-                        }}
-                        className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all ${categoryTab === 'beauty' ? 'bg-white shadow-md text-pink-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        💄 {currentLang === 'ko' ? 'K-뷰티' : 'K-Beauty'}
-                    </button>
-                </div>
-            </div>
-
-            {/* 🏷️ 3-1. 품목별 퀵 카테고리 (식품 탭일 때만 노출) */}
-            {categoryTab === 'food' && (
-                <div className="px-4 md:px-6 mt-4 overflow-x-auto no-scrollbar flex justify-center">
-                    <div className="flex gap-2 pb-2">
-                        {(FOOD_CATEGORIES[currentLang] || FOOD_CATEGORIES.ko).map((cat) => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setSelectedSubCategory(cat.id)}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all border
-                        ${selectedSubCategory === cat.id
-                                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                                        : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200'}`}
-                            >
-                                <span>{cat.emoji}</span>
-                                {cat.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* 🔍 3. 검색바 (여기도 currentDelivery 에러 안 나게 처리) */}
-            <div className="px-4 md:px-6 py-4 search-bar-anchor">
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                        🔍
-                    </div>
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder={
-                            categoryTab === 'food'
-                                ? (currentLang === 'ko' ? "식품 검색 (예: 신라면, 김치)" : "Search food...")
-                                : (currentLang === 'ko' ? "뷰티 검색 (예: 세럼, 선크림)" : "Search beauty...")
-                        }
-                        className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white border-2 border-slate-100 shadow-sm focus:border-indigo-500 outline-none transition-all text-sm font-medium"
-                    />
-                </div>
-            </div>
-
-            {/* 📦 4. 상품 리스트 (기존 렌더링 로직 유지) */}
-            <div className="max-h-[700px] overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-6">
-                {Object.keys(filteredAndGroupedData).length > 0 ? (
-                    Object.keys(filteredAndGroupedData)
-
-                        .sort((a, b) => {
-    // 1. "기타" 카테고리는 항상 맨 아래로
-    if (a === "기타") return 1;
-    if (b === "기타") return -1;
-
-    const itemsA = filteredAndGroupedData[a];
-    const itemsB = filteredAndGroupedData[b];
-
-    // 2. 각 카테고리의 가장 최신 업데이트 시간 계산
-    const latestA = Math.max(...itemsA.map((i) => new Date(i.updatedAt || 0).getTime()));
-    const latestB = Math.max(...itemsB.map((i) => new Date(i.updatedAt || 0).getTime()));
-
-    // 3. 🌟 NEW 상태(48시간 이내) 여부 확인
-    const isNewA = Date.now() - latestA < 48 * 60 * 60 * 1000;
-    const isNewB = Date.now() - latestB < 48 * 60 * 60 * 1000;
-
-    // 4. 🔥 정렬 우선순위 적용
-    // 둘 중 하나만 NEW라면 NEW인 쪽을 위로 올림
-    if (isNewA && !isNewB) return -1;
-    if (!isNewA && isNewB) return 1;
-
-    // 둘 다 NEW이거나 둘 다 NEW가 아니라면, 더 최근에 업데이트된 순서대로 정렬
-    return latestB - latestA;
-})
-
-                        .map((category) => {
-                            const items = filteredAndGroupedData[category];
-                            const firstItem = items[0];
-
-                            // 🌟 NEW 배지 조건 수정:
-                            const latestUpdate = Math.max(
-                                ...items.map((i) =>
-                                    new Date(i.updatedAt || 0).getTime(),
-                                ),
-                            );
-                            const isNew =
-                                Date.now() - latestUpdate < 48 * 60 * 60 * 1000; // 48시간 기준
-                            const shareData = {
-                                name: category, // 품목 카테고리 명 (예: 맥심 모카골드)
-                                price: firstItem.minPrice || "0.00", // 최저가
-                                // 절약 금액: 최고가 - 최저가 (이미지의 "7.00€ 절약" 로직)
-                                savings:
-                                    firstItem.maxPrice && firstItem.minPrice
-                                        ? (
-                                            firstItem.maxPrice -
-                                            firstItem.minPrice
-                                        ).toFixed(2)
-                                        : "0.00",
-                                bestStore:
-                                    firstItem.bestStore ||
-                                    firstItem.mart ||
-                                    "마트",
-                            };
-
-                            return (
-                                <div
-                                    key={category}
-                                    className="border border-slate-100 rounded-3xl overflow-hidden shadow-sm bg-slate-50/30">
-                                    <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-sm font-black text-slate-600 tracking-tight flex items-center gap-1">
-                                                # {category}
-                                                {isNew && (
-                                                    <span className="animate-pulse inline-block bg-rose-500 text-[9px] text-white px-2 py-0.5 rounded-full font-black shadow-sm">
-                                                        NEW
-                                                    </span>
-                                                )}
-                                            </h3>
-                                            <span className="text-[10px] font-bold text-indigo-500 bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-                                                {items.length}개 결과
-                                            </span>
-                                        </div>
-
-                                        {/* 🔗 상단으로 옮겨진 깔끔한 공유 버튼 */}
-
-                                        <div className="flex gap-1.5">
-                                            <button
-                                                onClick={() =>
-                                                    shareToKakao(
-                                                        shareData,
-                                                        currentLang,
-                                                    )
-                                                }
-                                                className="flex items-center gap-1 bg-[#FEE500] px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#3A1D1D] hover:opacity-90 transition-opacity">
-                                                카톡
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    shareToWhatsApp(
-                                                        shareData,
-                                                        currentLang,
-                                                    )
-                                                }
-                                                className="flex items-center gap-1 bg-[#25D366] px-2.5 py-1 rounded-lg text-[10px] font-bold text-white hover:opacity-90 transition-opacity">
-                                                WA
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* 🛒 상품 목록: 타입별로 자동 분류 렌더링 */}
-<div className="divide-y divide-slate-100/50">
-    {(() => {
-        const items = filteredAndGroupedData[category] || [];
-        const singles = items.filter(p => p.packType === 'single');
-        const multis = items.filter(p => p.packType === 'multi');
-
-        const translationMap = {
-            "진라면 순한맛": "Jin Ramen (Mild)",
-            "진라면 매운맛": "Jin Ramen (Spicy)",
-            "짜파게티": "Chapagetti",
-            "불닭볶음면": "Buldak Ramen",
-            "신라면": "Shin Ramyun",
-            // 여기에 더 필요한 상품명을 추가하면 됩니다!
-        };
-
-        // 내부 렌더링 헬퍼 함수
-        const renderProduct = (p, idx, isBundle = false) => {
-            const currentPrice = parseFloat(p.price) || 0;
-            const prevPrice = p.prevPrice ? parseFloat(p.prevPrice) : null;
-            
-            return (
-                <a
-                    key={`${p.mart}-${p.item}-${idx}`}
-                    href={p.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => {
-                        window.gtag?.("event", "click_amazon_product", {
-                            product_name: p.item,
-                            mart_name: p.mart,
-                            price: currentPrice,
-                            category: category,
-                        });
-                    }}
-                    className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-all group ${idx === 0 && !isBundle ? "bg-amber-50/20" : "bg-white"}`}
-                >
-                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 pr-4">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">{p.mart}</span>
-                        <span className="text-sm font-bold text-slate-700">
-    {/* ✅ 여기서 언어에 따라 이름을 바꿉니다 */}
-    {currentLang === 'KO' ? p.item : (translationMap[p.item] || p.item)}
+const PriceComparison = ({ currentLang }) => {
     
-    <span className="text-slate-400 font-normal ml-1">
-        {p.packSize && `(${p.packSize})`}
-    </span>
-</span>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right flex flex-col items-end">
-                            <div className="flex items-center gap-1">
-                                <span className={`text-lg font-black ${idx === 0 && !isBundle ? "text-amber-600" : "text-slate-800"}`}>
-                                    €{currentPrice.toFixed(2)}
-                                </span>
-                                {idx === 0 && !isBundle && <span className="text-sm">🏆</span>}
-                            </div>
-                            {prevPrice && Math.abs(currentPrice - prevPrice) > 0.001 && (
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${currentPrice < prevPrice ? "text-green-600 bg-green-50" : "text-rose-600 bg-rose-50"}`}>
-                                    {currentPrice < prevPrice ? `▼ €${Math.abs(currentPrice - prevPrice).toFixed(2)}` : `▲ €${(currentPrice - prevPrice).toFixed(2)}`}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </a>
-            );
-        };
-
-        return (
-            <>
-                {/* 1. 낱개 상품 섹션 */}
-                {singles.map((p, idx) => renderProduct(p, idx, false))}
-                
-                {/* 2. 번들 상품 섹션 (구분선 포함) */}
-                {multis.map((p, idx) => renderProduct(p, idx, true))}
-            </>
-        );
-    })()}
-</div>
-
-
-                                </div>
-                            );
-                        })
-                ) : (
-                    <div className="py-20 text-center text-slate-300 font-bold italic">
-                        {searchTerm
-                            ? "검색 결과가 없습니다 🥲"
-                            : "데이터를 불러오는 중입니다..."}
-                    </div>
-                )}
-            </div>
-
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-                @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-                .animate-marquee { animation: marquee 20s linear infinite; }
-                .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-            `}} />
-            <div className="w-full max-w-4xl mx-auto mt-12 mb-20 px-4">
-                <ReportPriceForm currentLang={currentLang} />
-            </div>
-        </div>
+    const currentLangConfig = langConfig[currentLang] || langConfig.ko;
+    const t = new Proxy(
+      (key) => currentLangConfig[key] || key,
+      {
+        get: (target, prop) => currentLangConfig[prop] || target[prop]
+      }
     );
+    
+    const [searchParams, setSearchParams] = useSearchParams();
+
+  const categoryTab = searchParams.get("cat") || null;
+  const subCatFilter = searchParams.get("sub") || "all";
+  const urlSearchTerm = searchParams.get("q") || "";
+  const selectedItemName = searchParams.get("item") || null;
+  const packFilter = searchParams.get("pack") || "all";
+
+  // 🔥 한글 입력 씹힘/자음 분리 방지를 위한 Local State
+  const [searchInput, setSearchInput] = useState(urlSearchTerm);
+  const [rawPrices, setRawPrices] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // URL searchParam 변경 시 local state 동기화
+  useEffect(() => {
+    setSearchInput(urlSearchTerm);
+  }, [urlSearchTerm]);
+
+  const updateQueryParams = (newParams) => {
+    const current = Object.fromEntries(searchParams.entries());
+    const updated = { ...current, ...newParams };
+    Object.keys(updated).forEach((key) => {
+      if (!updated[key] || updated[key] === "all") delete updated[key];
+    });
+    setSearchParams(updated);
+  };
+
+  const handleSelectCategory = (cat) => {
+    if (cat) setSearchParams({ cat });
+    else setSearchParams({});
+  };
+
+  // 🔥 검색창 입력 시 한글 조합 유지
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchInput(val);
+    updateQueryParams({ q: val });
+  };
+
+  // Firestore DB 로드
+  useEffect(() => {
+    if (!categoryTab) return;
+
+    const fetchFirestoreData = async () => {
+      setLoading(true);
+      try {
+        const collectionName = categoryTab === "beauty" ? "beauty_prices" : "prices";
+        const docRef = doc(db, collectionName, "latest");
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const docData = docSnap.data();
+          let itemsArray = [];
+
+          if (Array.isArray(docData.data)) {
+            itemsArray = docData.data;
+          } else if (typeof docData === "object") {
+            itemsArray = Object.values(docData).filter(
+              (val) => typeof val === "object" && val !== null && (val.searchKeyword || val.item || val.price)
+            );
+          }
+          setRawPrices(itemsArray);
+        } else {
+          setRawPrices([]);
+        }
+      } catch (error) {
+        console.error("Firestore 로드 실패:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFirestoreData();
+  }, [categoryTab]);
+
+  // 데이터 그룹화 및 category 필드 보존
+  const groupedProducts = useMemo(() => {
+    if (!rawPrices || rawPrices.length === 0) return [];
+
+    const map = new Map();
+
+    rawPrices.forEach((entry) => {
+      const rawKeyword = entry.searchKeyword || entry.originalItemName || entry.item || "기타 상품";
+      const cleanKeyword = String(rawKeyword).trim();
+
+      const isSingle = entry.packType === "single";
+      const pType = isSingle ? "single" : "bundle";
+      const groupKey = `${cleanKeyword}_${pType}`;
+
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          id: groupKey,
+          nameKey: cleanKeyword,
+          nameKo: cleanKeyword,
+          nameEn: entry.item || cleanKeyword,
+          mainCategory: categoryTab,
+          // 🔥 DB에 정해져있는 subCategory 또는 category 값 저장 (예: "living")
+          subCategory: entry.subCategory || entry.category || null, 
+          packType: pType,
+          prices: {},
+        });
+      }
+
+      const product = map.get(groupKey);
+      const martKey = entry.mart ? String(entry.mart).trim() : "일반마트";
+
+      product.prices[martKey] = {
+        martName: martKey,
+        price: parseFloat(entry.price) || 0,
+        url: entry.link || "#",
+        packSize: entry.packSize || "",
+        packType: pType,
+      };
+    });
+
+    return Array.from(map.values());
+  }, [rawPrices, categoryTab]);
+
+  // 🔥 DB의 living 필드 및 키워드 혼용 판별 + 필터링
+  const filteredProducts = useMemo(() => {
+    return groupedProducts.filter((item) => {
+      // 1. single / bundle 필터
+      if (packFilter !== "all" && item.packType !== packFilter) {
+        return false;
+      }
+
+      // 2. 세부 카테고리 필터 (DB category 우선 검사 -> 키워드 보완)
+      if (subCatFilter !== "all") {
+        const itemSubCategory = (item.subCategory || "").toLowerCase();
+
+        // 2-1. DB에 "living" 등의 값이 지정되어 있을 때
+        if (itemSubCategory) {
+          if (itemSubCategory !== subCatFilter) return false;
+        } else {
+          // 2-2. DB에 값이 없을 때 키워드로 보완
+          const targetSub = SUB_CATEGORIES.find((s) => s.id === subCatFilter);
+          if (targetSub && targetSub.keywords) {
+            const match = targetSub.keywords.some((kw) =>
+              item.nameKo.toLowerCase().includes(kw) || item.nameEn.toLowerCase().includes(kw)
+            );
+            if (!match) return false;
+          }
+        }
+      }
+
+      // 3. 검색어 필터
+      if (!searchInput.trim()) return true;
+      const term = searchInput.toLowerCase();
+      return item.nameKo?.toLowerCase().includes(term) || item.nameEn?.toLowerCase().includes(term);
+    });
+  }, [groupedProducts, searchInput, packFilter, subCatFilter]);
+
+  const selectedItem = useMemo(() => {
+    if (!selectedItemName) return null;
+    return groupedProducts.find((p) => p.id === selectedItemName) || null;
+  }, [groupedProducts, selectedItemName]);
+
+  const getLowestPrice = (pricesMap) => {
+    const values = Object.values(pricesMap).map((p) => p.price).filter((p) => p > 0);
+    return values.length > 0 ? Math.min(...values) : null;
+  };
+
+  const handleShareClick = (type, product, e) => {
+    if (e) e.stopPropagation();
+
+    const lowestPrice = getLowestPrice(product.prices);
+
+    const sharePayload = {
+      name: product.nameKo,
+      title: product.nameKo,
+      item: product.nameKo,
+      price: lowestPrice ? lowestPrice.toFixed(2) : "0.00",
+      category: categoryTab,
+    };
+
+    if (type === "kakao") {
+      shareToKakao(sharePayload, currentLang);
+    } else if (type === "whatsapp") {
+      shareToWhatsApp(sharePayload, currentLang);
+    }
+  };
+
+  if (!categoryTab) {
+    return (
+      <div className="w-full max-w-5xl mx-auto px-4 py-16 text-center">
+       <h1>{t.title_food}</h1>
+       <p className="text-slate-500 mb-10">{t.landing_sub}</p> {/* 👈 t.landing_sub 객체 접근으로 수정 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+          <button
+            onClick={() => handleSelectCategory("food")}
+            className="p-8 bg-orange-50 border-2 border-orange-200 hover:border-orange-500 rounded-3xl text-left cursor-pointer transition-all hover:-translate-y-1 shadow-sm"
+          >
+            <div className="text-4xl mb-4">🛒</div>
+            <h2 className="text-2xl font-black text-slate-800 mb-2">{t.food_label}</h2>
+            <p className="text-xs text-slate-500">{t.food_desc}</p>
+          </button>
+
+          <button
+            onClick={() => handleSelectCategory("beauty")}
+            className="p-8 bg-pink-50 border-2 border-pink-200 hover:border-pink-500 rounded-3xl text-left cursor-pointer transition-all hover:-translate-y-1 shadow-sm"
+          >
+            <div className="text-4xl mb-4">💄</div>
+            <h2 className="text-2xl font-black text-slate-800 mb-2">{t.beauty_label}</h2>
+            <p className="text-xs text-slate-500">{t.beauty_desc}</p>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-6xl mx-auto px-4 py-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+          <button
+            onClick={() => handleSelectCategory(null)}
+            className="text-xs font-bold text-slate-400 hover:text-indigo-600 mb-2 inline-block cursor-pointer"
+          >
+            {t.change_category}
+          </button>
+          <h1 className="text-3xl font-black text-slate-800">
+            {categoryTab === "food" ? t.title_food : t.title_beauty}
+          </h1>
+        </div>
+
+        <div className="flex bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => handleSelectCategory("food")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+              categoryTab === "food" ? "bg-white text-orange-600 shadow-sm" : "text-slate-500"
+            }`}
+          >
+            🛒 Food
+          </button>
+          <button
+            onClick={() => handleSelectCategory("beauty")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+              categoryTab === "beauty" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500"
+            }`}
+          >
+            💄 Beauty
+          </button>
+        </div>
+      </div>
+
+      {/* 세부 카테고리 필터 */}
+      {categoryTab === "food" && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar">
+          {SUB_CATEGORIES.map((sub) => (
+            <button
+              key={sub.id}
+              onClick={() => updateQueryParams({ sub: sub.id })}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                subCatFilter === sub.id
+                  ? "bg-slate-900 text-white shadow-md"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {sub.emoji} {sub.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 검색 바 & 싱글/번들 탭 */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-8">
+        <input
+          type="text"
+          placeholder={categoryTab === "food" ? t.foodPlaceholder : t.beautyPlaceholder}
+          value={searchInput}
+          onChange={handleSearchChange}
+          className="w-full sm:w-80 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 shadow-sm"
+        />
+
+        <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-bold w-full sm:w-auto justify-center">
+          <button
+            onClick={() => updateQueryParams({ pack: "all" })}
+            className={`px-4 py-2 rounded-xl cursor-pointer transition-all ${
+              packFilter === "all" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+            }`}
+          >
+            {t.filter_all}
+          </button>
+          <button
+            onClick={() => updateQueryParams({ pack: "single" })}
+            className={`px-4 py-2 rounded-xl cursor-pointer transition-all ${
+              packFilter === "single" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"
+            }`}
+          >
+            📦 {t.single}
+          </button>
+          <button
+            onClick={() => updateQueryParams({ pack: "bundle" })}
+            className={`px-4 py-2 rounded-xl cursor-pointer transition-all ${
+              packFilter === "bundle" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"
+            }`}
+          >
+            🎁 {t.bundle}
+          </button>
+        </div>
+      </div>
+
+      {/* 목록 */}
+      {loading ? (
+        <div className="text-center py-20 text-slate-400 font-bold">
+          <div className="text-3xl mb-2 animate-spin">🔄</div>
+          {t.loading}
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center py-20 bg-slate-50 rounded-3xl border border-dashed text-slate-400 font-bold">
+          {t.no_price_data}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProducts.map((product) => {
+            const lowestPrice = getLowestPrice(product.prices);
+
+            return (
+              <div
+                key={product.id}
+                onClick={() => updateQueryParams({ item: product.id })}
+                className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl">{categoryTab === "food" ? "🍜" : "✨"}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                        {product.packType === "single" ? `📦 ${t.single}` : `🎁 ${t.bundle}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => handleShareClick("kakao", product, e)}
+                        className="w-7 h-7 bg-yellow-300 hover:bg-yellow-400 text-yellow-950 font-black rounded-full text-xs flex items-center justify-center shadow-sm transition-transform hover:scale-110"
+                        title="카카오톡 공유"
+                      >
+                        💬
+                      </button>
+                      <button
+                        onClick={(e) => handleShareClick("whatsapp", product, e)}
+                        className="w-7 h-7 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-full text-xs flex items-center justify-center shadow-sm transition-transform hover:scale-110"
+                        title="WhatsApp 공유"
+                      >
+                        📱
+                      </button>
+                      {lowestPrice && (
+                        <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-xs font-black px-3 py-1 rounded-full ml-1">
+                          {t.best_price} €{lowestPrice.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg font-black text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors">
+                    {product.nameKo}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mb-4 line-clamp-1">{product.nameEn}</p>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 mt-4 space-y-2.5">
+                  {Object.entries(product.prices).map(([martName, p]) => {
+                    const isMin = p.price === lowestPrice;
+                    const martMeta = MARTS.find((m) => m.name === martName) || { color: "bg-slate-400" };
+
+                    return (
+                      <div key={martName} className="flex justify-between items-center text-xs">
+                        <span className="text-slate-600 font-semibold flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${martMeta.color}`}></span>
+                          {martName}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-black ${isMin ? "text-emerald-600 text-sm" : "text-slate-700"}`}>
+                            €{p.price.toFixed(2)}
+                          </span>
+                          <a
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white px-2 py-1 rounded-lg font-bold transition-all"
+                          >
+                            {t.go_link} ↗
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 상세 모달 */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => updateQueryParams({ item: null })}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-black text-slate-800">{selectedItem.nameKo}</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                    {selectedItem.packType === "single" ? `📦 ${t.single}` : `🎁 ${t.bundle}`}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">{selectedItem.nameEn}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleShareClick("kakao", selectedItem, e)}
+                  className="px-2.5 py-1 bg-yellow-300 hover:bg-yellow-400 text-yellow-950 font-bold text-xs rounded-xl shadow-sm"
+                >
+                  💬 카카오톡
+                </button>
+                <button
+                  onClick={(e) => handleShareClick("whatsapp", selectedItem, e)}
+                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-sm"
+                >
+                  📱 WhatsApp
+                </button>
+                <button
+                  onClick={() => updateQueryParams({ item: null })}
+                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 font-bold cursor-pointer ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <h4 className="text-xs font-bold text-slate-400 mb-3 uppercase">{t.modal_title}</h4>
+
+            <div className="space-y-3">
+              {Object.entries(selectedItem.prices).map(([martName, p]) => (
+                <div
+                  key={martName}
+                  className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 border border-slate-100"
+                >
+                  <div>
+                    <span className="font-bold text-slate-800 text-sm block">{martName}</span>
+                    {p.packSize && (
+                      <span className="text-[11px] text-slate-400">
+                        {t.capacity}: {p.packSize} ({p.packType === "single" ? t.single : t.bundle})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="font-black text-slate-900 text-base">€{p.price.toFixed(2)}</span>
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-colors shadow-sm"
+                    >
+                      {t.buy_now} ↗
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default PriceComparison;
