@@ -41,9 +41,9 @@ const PriceComparison = ({ currentLang }) => {
     
     const [searchParams, setSearchParams] = useSearchParams();
 
-  const categoryTab = searchParams.get("cat") || null;
+const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
   const subCatFilter = searchParams.get("sub") || "all";
-  const urlSearchTerm = searchParams.get("q") || "";
+  const urlSearchTerm = searchParams.get("q") || searchParams.get("search") || "";
   const selectedItemName = searchParams.get("item") || null;
   const packFilter = searchParams.get("pack") || "all";
 
