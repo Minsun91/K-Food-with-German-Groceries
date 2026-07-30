@@ -266,11 +266,16 @@ const prompt = `
 
             cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
 
-            // 최종 파싱
             const recipe = JSON.parse(cleaned);
 
-            // 상태 업데이트
-            setSelectedRecipe(recipe);
+// 🌟 핵심: 생성된 직후 레시피 타입 명시 및 가상 ID 부여 (아직 DB 저장 전이라도 레시피로 인식되도록)
+const recipeWithMeta = {
+    ...recipe,
+    type: 'recipe',
+    isAiGenerated: true
+};
+
+setSelectedRecipe(recipeWithMeta);
 
             // ===== Rate limit 저장 로직 =====
             const newCount = (rateLimit?.count || 0) + 1;
