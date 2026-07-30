@@ -1,17 +1,24 @@
-// 1. 뷰티 판별 로직
+// 1. 뷰티 판별 로직 (더 정확하게 개선)
 const checkIsBeauty = (data, cleanName) => {
-    if (data && data.category === 'beauty') return true;
+    if (data && (data.category === 'beauty' || data.type === 'beauty')) return true;
     const name = (cleanName || "").toLowerCase();
-    const beautyKeywords = ['medicube', 'age-r', 'pdrn', 'cream', 'serum', 'skin', 'toner', 'beauty', 'ampoule', 'sunscreen', '크림', '세럼', '화장품'];
+    const beautyKeywords = [
+        'medicube', 'age-r', 'pdrn', 'cream', 'serum', 'skin', 'toner', 
+        'beauty', 'ampoule', 'sunscreen', '크림', '세럼', '화장품', '마스크팩', '선크림'
+    ];
     return beautyKeywords.some(key => name.includes(key));
 };
 
 // 2. 안전한 인코딩 및 문자열 세척
 const safeCleanAndEncode = (str) => {
-    if (!str) return "";
-    let cleaned = str.replace(/^[^a-zA-Z0-9가-힣]+/, '').trim();
-    cleaned = cleaned.replace(/[💄🛒🍳🍱🏪]|(\(.*\))/g, '').trim();
+    if (!str) return { encoded: "", plain: "K-Product" };
     
+    // 이모지 및 특수 이모티콘 제거
+    let cleaned = str.replace(/[💄🛒🍳🍱🏪]|(\(.*\))/g, '').trim();
+    cleaned = cleaned.replace(/^[^a-zA-Z0-9가-힣]+/, '').trim();
+    
+    if (!cleaned) cleaned = "K-Product";
+
     try {
         return { 
             encoded: encodeURIComponent(cleaned), 
@@ -26,10 +33,20 @@ const safeCleanAndEncode = (str) => {
     }
 };
 
-// 3. 타입 판별 보조 함수 (레시피 vs 상품)
+// 3. 타입 판별 보조 함수 (★ 엄격하게 수정!)
 const checkIsRecipe = (data) => {
     if (!data) return false;
-    return !!(data.recipeId || data.ingredients || data.instructions || data.type === 'recipe');
+    // 단순히 필드가 존재하는 게 아니라, 실제 배열/문자열 데이터가 제대로 들어있는지 확인
+    const hasIngredients = Array.isArray(data.ingredients) && data.ingredients.length > 0;
+    const hasInstructions = Array.isArray(data.instructions) && data.instructions.length > 0;
+    
+    return !!(data.type === 'recipe' || data.recipeId || (hasIngredients && hasInstructions));
+};
+
+// 4. 가격 포맷팅 보조 함수 (0원이나 빈값 방지)
+const formatPrice = (price) => {
+    if (!price || price === "0" || price === "0.00" || price === 0) return null;
+    return `${price}€`;
 };
 
 // --- WhatsApp 공유 ---
@@ -48,8 +65,8 @@ export const shareToWhatsApp = (data, currentLang = 'ko') => {
         ? `${baseUrl}/recipe?recipeId=${data.id || data.recipeId}&lang=${currentLang}`
         : `${baseUrl}/price?search=${encodedName}&lang=${currentLang}&tab=${finalTab}`;
 
-    const marketName = data.market || data.supermarket || data.store || ""; // 마트 이름 (예: Rewe, Edeka)
-    const price = data.price || "0.00";
+    const marketName = data.market || data.supermarket || data.store || ""; 
+    const priceText = formatPrice(data.price);
     let msgText = "";
 
     if (isRecipe) {
@@ -58,17 +75,23 @@ export const shareToWhatsApp = (data, currentLang = 'ko') => {
             ? `🍳 [독일 마트 재료 레시피] ${cleanName} 만드는 법을 확인해 보세요! 👇\n\n${shareUrl}`
             : `🍳 Check out how to make ${cleanName} with German grocery ingredients! 👇\n\n${shareUrl}`;
     } else if (marketName) {
-        // 🏪 2. 특정 마트 최저가 상품 공유 (Rewe, Edeka 등 마트 정보가 있을 때)
+        // 🏪 2. 특정 마트 최저가 상품 공유
         const icon = isBeauty ? "💄" : "🛒";
+        const priceInfo = priceText ? `최저가 ${priceText}` : "최저가 정보";
+        const priceInfoEn = priceText ? `for ${priceText}` : "best price";
+        
         msgText = currentLang === 'ko'
-            ? `${icon} 🔥 [${marketName}] ${cleanName} 최저가 ${price}€ 떴어요! 지금 확인해 보세요 👇\n\n${shareUrl}`
-            : `${icon} 🔥 Lowest price for ${cleanName} at [${marketName}] for ${price}€! Check it out 👇\n\n${shareUrl}`;
+            ? `${icon} 🔥 [${marketName}] ${cleanName} ${priceInfo} 떴어요! 지금 확인해 보세요 👇\n\n${shareUrl}`
+            : `${icon} 🔥 Lowest price for ${cleanName} at [${marketName}] ${priceInfoEn}! Check it out 👇\n\n${shareUrl}`;
     } else {
         // 🛒 3. 일반 최저가 상품 공유
         const icon = isBeauty ? "💄" : "🛒";
+        const priceNotice = priceText ? `지금 ${priceText}에 득템하고 절약하세요!` : "지금 최저가를 확인해 보세요!";
+        const priceNoticeEn = priceText ? `Get it for ${priceText} and save big now!` : "Check out the best price now!";
+        
         msgText = currentLang === 'ko'
-            ? `${icon} 🔥 ${cleanName} 최저가 떴어요! 지금 ${price}€에 득템하고 절약하세요! 👇\n\n${shareUrl}`
-            : `${icon} 🔥 Lowest price for ${cleanName}! Get it for ${price}€ and save big now! 👇\n\n${shareUrl}`;
+            ? `${icon} 🔥 ${cleanName} 최저가 떴어요! ${priceNotice} 👇\n\n${shareUrl}`
+            : `${icon} 🔥 Lowest price for ${cleanName}! ${priceNoticeEn} 👇\n\n${shareUrl}`;
     }
 
     window.open(`https://wa.me/?text=${encodeURIComponent(msgText)}`, '_blank');
@@ -92,7 +115,7 @@ export const shareToKakao = (data, currentLang = 'ko') => {
         : `${baseUrl}/price?search=${encodedName}&lang=${currentLang}&tab=${finalTab}`;
 
     const marketName = data.market || data.supermarket || data.store || "";
-    const price = data.price || "0.00";
+    const priceText = formatPrice(data.price);
 
     let titleText = "";
     let descriptionText = "";
@@ -108,16 +131,22 @@ export const shareToKakao = (data, currentLang = 'ko') => {
     } else if (marketName) {
         // 🏪 2. 특정 마트 최저가 상품 카카오 설정
         titleText = `${isBeauty ? '💄' : '🏪'} [${marketName}] ${cleanName}`;
+        const priceDesc = priceText ? `최저가 ${priceText} 떴어요!` : `최저가 정보 확인하세요!`;
+        const priceDescEn = priceText ? `(${priceText})` : ``;
+        
         descriptionText = currentLang === 'ko'
-            ? `🔥 ${marketName}에서 ${cleanName} 최저가 ${price}€ 떴어요! 👇`
-            : `🔥 Lowest price at ${marketName} for ${cleanName} (${price}€)! 👇`;
+            ? `🔥 ${marketName}에서 ${cleanName} ${priceDesc} 👇`
+            : `🔥 Lowest price at ${marketName} for ${cleanName} ${priceDescEn}! 👇`;
         buttonText = currentLang === 'ko' ? '최저가 확인' : 'Check Price';
     } else {
         // 🛒 3. 일반 최저가 상품 카카오 설정
         titleText = `${isBeauty ? '💄' : '🛒'} ${cleanName}`;
+        const priceDesc = priceText ? `지금 ${priceText}에 득템하고 절약하세요!` : `지금 실시간 최저가를 확인해 보세요!`;
+        const priceDescEn = priceText ? `Get it for ${priceText} and save big now!` : `Check out real-time best prices!`;
+
         descriptionText = currentLang === 'ko' 
-            ? `🔥 ${cleanName} 최저가 떴어요! 지금 ${price}€에 득템하고 절약하세요! 👇` 
-            : `🔥 Lowest price for ${cleanName}! Get it for ${price}€ and save big now! 👇`;
+            ? `🔥 ${cleanName} 최저가 떴어요! ${priceDesc} 👇` 
+            : `🔥 Lowest price for ${cleanName}! ${priceDescEn} 👇`;
         buttonText = currentLang === 'ko' ? '가격 확인하기' : 'Check Price';
     }
 
@@ -128,7 +157,7 @@ export const shareToKakao = (data, currentLang = 'ko') => {
         content: {
             title: titleText,
             description: descriptionText,
-            imageUrl: data.image || data.imageUrl || 'https://k-food-with-german-groceries.web.app/og-image.png',
+            imageUrl: data.image || data.imageUrl || `${baseUrl}/og-image.png`,
             link: { mobileWebUrl: shareUrl, webUrl: shareUrl },
         },
         buttons: [{ 
