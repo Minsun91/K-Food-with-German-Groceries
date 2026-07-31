@@ -26,6 +26,7 @@ const SUB_CATEGORIES = [
   { id: "rice", name: "쌀/곡류", emoji: "🌾", keywords: ["쌀", "햇반", "밥", "rice"] },
   { id: "sauce", name: "소스/양념", emoji: "🥫", keywords: ["장", "고추장", "된장", "간장", "소스", "sauce", "paste"] },
   { id: "snack", name: "스낵/간식", emoji: "🍪", keywords: ["스낵", "과자", "파이", "초코", "snack", "chip"] },
+  { id: "kimchi", name: "김치", emoji: "🥬", keywords: ["김치", "열무"] },
   { id: "living", name: "가전", emoji: "🔌", keywords: ["밥솥", "쿠쿠", "쿠첸", "가전", "포트", "cooker"] },
 ];
 
@@ -159,20 +160,21 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
 
   // 🔥 DB의 living 필드 및 키워드 혼용 판별 + 필터링
   const filteredProducts = useMemo(() => {
-    return groupedProducts.filter((item) => {
-      // 1. single / bundle 필터
+    // 1. 조건에 맞는 상품들만 골라내기 (Filter)
+    const filtered = groupedProducts.filter((item) => {
+      // single / bundle 필터
       if (packFilter !== "all" && item.packType !== packFilter) {
         return false;
       }
 
+      // 세부 카테고리 필터
       if (subCatFilter !== "all") {
-        const itemSubCategory = (item.subCategory || "").toLowerCase(); // 👈 여기에 들어가야 해요!
+        const itemSubCategory = (item.subCategory || "").toLowerCase();
         
         if (itemSubCategory) {
           if (itemSubCategory !== subCatFilter) return false;
         } else {
-
-          // 2-2. DB에 값이 없을 때 키워드로 보완
+          // DB에 값이 없을 때 키워드로 보완
           const targetSub = SUB_CATEGORIES.find((s) => s.id === subCatFilter);
           if (targetSub && targetSub.keywords) {
             const match = targetSub.keywords.some((kw) =>
@@ -183,10 +185,26 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         }
       }
 
-      // 3. 검색어 필터
+      // 검색어 필터
       if (!searchInput.trim()) return true;
       const term = searchInput.toLowerCase();
       return item.nameKo?.toLowerCase().includes(term) || item.nameEn?.toLowerCase().includes(term);
+    });
+
+    // 2. 골라낸 상품들을 최신순(1순위) 및 최저가순(2순위)으로 정렬하기 (Sort)
+    return filtered.sort((a, b) => {
+      // 최신 업데이트 기준 정렬 (updatedAt 기준 내림차순: 최신이 위로)
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      
+      if (dateB !== dateA) {
+        return dateB - dateA; // 최신순
+      }
+
+      // 날짜가 같다면 최저가 기준 정렬 (저렴한 가격이 위로)
+      const lowA = getLowestPrice(a.prices) || 999999;
+      const lowB = getLowestPrice(b.prices) || 999999;
+      return lowA - lowB;
     });
   }, [groupedProducts, searchInput, packFilter, subCatFilter]);
 
@@ -327,7 +345,7 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
               packFilter === "single" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"
             }`}
           >
-            📦 {t.single}
+            📦
           </button>
           <button
             onClick={() => updateQueryParams({ pack: "bundle" })}
@@ -335,13 +353,13 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
               packFilter === "bundle" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"
             }`}
           >
-            🎁 {t.bundle}
+            🎁
           </button>
         </div>
       </div>
 
-      {/* 목록 */}
-      {loading ? (
+{/* 목록 */}
+{loading ? (
         <div className="text-center py-20 text-slate-400 font-bold">
           <div className="text-3xl mb-2 animate-spin">🔄</div>
           {t.loading}
@@ -352,14 +370,18 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => {
+          {filteredProducts.map((product, index) => {
             const lowestPrice = getLowestPrice(product.prices);
+            const isFirstItem = index === 0; // 👈 맨 위 첫 번째 카드 판별
 
             return (
               <div
                 key={product.id}
                 onClick={() => updateQueryParams({ item: product.id })}
-                className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between group"
+                // 👇 호버 애니메이션 및 첫 번째 카드 강조 효과 적용
+                className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between group ${
+                  isFirstItem ? "border-2 border-indigo-500 shadow-md" : "border border-slate-100"
+                }`}
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
@@ -449,7 +471,7 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-black text-slate-800">{selectedItem.nameKo}</h3>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                    {selectedItem.packType === "single" ? `📦 ${t.single}` : `🎁 ${t.bundle}`}
+                    {selectedItem.packType === "single" ? `📦` : `🎁`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">{selectedItem.nameEn}</p>
