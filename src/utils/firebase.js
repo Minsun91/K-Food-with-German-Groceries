@@ -40,3 +40,4 @@ export const apiKey_gemini = import.meta.env.VITE_GEMINI_API_KEY;
 
 // 5. 모듈 Export
 export { db, auth, analytics, app, appId, userId, storage, projectId };
+

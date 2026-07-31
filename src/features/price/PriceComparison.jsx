@@ -23,11 +23,28 @@ const SUB_CATEGORIES = [
   { id: "all", name: "전체", emoji: "🏷️" },
   { id: "noodle", name: "라면", emoji: "🍜", keywords: ["라면", "면", "udon", "noodle", "ramen"] },
   { id: "rice", name: "쌀/곡류", emoji: "🌾", keywords: ["쌀", "햇반", "밥", "rice"] },
-  { id: "sauce", name: "소스/양념", emoji: "🥫", keywords: ["장", "고추장", "된장", "간장", "소스", "sauce", "paste"] },
+  { id: "sauce", name: "소스/양념", emoji: "🥫", keywords: ["장", "고추장", "된장", "간장", "소스", "sauce", "paste", "카레", "curry"] },
+  { id: "canned", name: "통조림/가공", emoji: "🥫", keywords: ["참치", "스팸", "햄", "통조림", "tuna"] },
+  { id: "frozen", name: "냉동식품", emoji: "🥟", keywords: ["만두", "교자", "냉동", "dumpling"] },
   { id: "snack", name: "스낵/간식", emoji: "🍪", keywords: ["스낵", "과자", "파이", "초코", "snack", "chip"] },
   { id: "kimchi", name: "김치", emoji: "🥬", keywords: ["김치", "열무"] },
   { id: "living", name: "가전", emoji: "🔌", keywords: ["밥솥", "쿠쿠", "쿠첸", "가전", "포트", "cooker"] },
 ];
+
+// 카테고리별 이모지 자동 매칭 함수
+const getProductEmoji = (subCategory, nameKo) => {
+  const sub = SUB_CATEGORIES.find(s => s.id === subCategory);
+  if (sub && sub.id !== "all") return sub.emoji;
+
+  // subCategory 필드가 없으면 이름 키워드로 유추
+  const lowerName = nameKo.toLowerCase();
+  for (const s of SUB_CATEGORIES) {
+    if (s.keywords && s.keywords.some(kw => lowerName.includes(kw))) {
+      return s.emoji;
+    }
+  }
+  return "🛒";
+};
 
 const PriceComparison = ({ currentLang }) => {
     
@@ -49,6 +66,7 @@ const PriceComparison = ({ currentLang }) => {
 
   const [searchInput, setSearchInput] = useState(urlSearchTerm);
   const [rawPrices, setRawPrices] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(null); // 전체 업데이트 시각 상태
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -75,10 +93,24 @@ const PriceComparison = ({ currentLang }) => {
     updateQueryParams({ q: val });
   };
 
-  // 🔥 getLowestPrice 함수를 위쪽으로 끌어올림 (에러 방지)
   const getLowestPrice = (pricesMap) => {
     const values = Object.values(pricesMap).map((p) => p.price).filter((p) => p > 0);
     return values.length > 0 ? Math.min(...values) : null;
+  };
+
+  // 가격 변동 렌더링 헬퍼 함수
+  const renderPriceChange = (currentPrice, prevPrice) => {
+    if (!prevPrice || prevPrice === currentPrice) return null;
+    const diff = currentPrice - prevPrice;
+    const isUp = diff > 0;
+    
+    return (
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 ${
+        isUp ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
+      }`}>
+        {isUp ? `▲ +€${diff.toFixed(2)}` : `▼ -€${Math.abs(diff).toFixed(2)}`}
+      </span>
+    );
   };
 
   useEffect(() => {
@@ -93,6 +125,12 @@ const PriceComparison = ({ currentLang }) => {
 
         if (docSnap.exists()) {
           const docData = docSnap.data();
+          
+          // 문서 전체의 업데이트 시간 추출 (저장 방식에 따라 updatedAt 혹은 timestamp 등 대응)
+          if (docData.updatedAt || docData.timestamp) {
+            setLastUpdated(docData.updatedAt || docData.timestamp);
+          }
+
           let itemsArray = [];
 
           if (Array.isArray(docData.data)) {
@@ -105,6 +143,7 @@ const PriceComparison = ({ currentLang }) => {
           setRawPrices(itemsArray);
         } else {
           setRawPrices([]);
+          setLastUpdated(null);
         }
       } catch (error) {
         console.error("Firestore 로드 실패:", error);
@@ -139,7 +178,7 @@ const PriceComparison = ({ currentLang }) => {
           subCategory: entry.subCategory || entry.category || null, 
           packType: pType,
           prices: {},
-          updatedAt: entry.updatedAt || null, // updatedAt 필드 반영
+          updatedAt: entry.updatedAt || null,
         });
       }
 
@@ -149,6 +188,7 @@ const PriceComparison = ({ currentLang }) => {
       product.prices[martKey] = {
         martName: martKey,
         price: parseFloat(entry.price) || 0,
+        prevPrice: entry.prevPrice !== undefined && entry.prevPrice !== null ? parseFloat(entry.prevPrice) : null,
         url: entry.link || "#",
         packSize: entry.packSize || "",
         packType: pType,
@@ -262,9 +302,17 @@ const PriceComparison = ({ currentLang }) => {
           >
             {t.change_category}
           </button>
-          <h1 className="text-3xl font-black text-slate-800">
-            {categoryTab === "food" ? t.title_food : t.title_beauty}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-black text-slate-800">
+              {categoryTab === "food" ? t.title_food : t.title_beauty}
+            </h1>
+            {/* 🕒 최신 업데이트 시간 표시 영역 */}
+            {lastUpdated && (
+              <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+                🔄 업데이트: {new Date(lastUpdated).toLocaleString()}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -353,25 +401,24 @@ const PriceComparison = ({ currentLang }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product, index) => {
+          {filteredProducts.map((product) => {
             const lowestPrice = getLowestPrice(product.prices);
-            const isFirstItem = index === 0;
+            const sortedPrices = Object.entries(product.prices).sort(([, a], [, b]) => a.price - b.price);
+            
+            // 카테고리/이름 기반 동적 이모지 추출 (라면 이모지 고정 탈출)
+            const dynamicEmoji = categoryTab === "beauty" ? "✨" : getProductEmoji(product.subCategory, product.nameKo);
 
             return (
               <div
                 key={product.id}
                 onClick={() => updateQueryParams({ item: product.id })}
-                className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between group ${
-                  isFirstItem ? "border-2 border-indigo-500 shadow-md" : "border border-slate-100"
-                }`}
+                className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between group border border-slate-100"
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
+                    {/* 동적 이모지 적용 및 Single 뱃지 제거 완료 */}
                     <div className="flex items-center gap-2">
-                      <span className="text-3xl">{categoryTab === "food" ? "🍜" : "✨"}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                        {product.packType === "single" ? `📦 ${t.single}` : `🎁 ${t.bundle}`}
-                      </span>
+                      <span className="text-3xl">{dynamicEmoji}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -404,7 +451,7 @@ const PriceComparison = ({ currentLang }) => {
                 </div>
 
                 <div className="border-t border-slate-100 pt-4 mt-4 space-y-2.5">
-                  {Object.entries(product.prices).map(([martName, p]) => {
+                  {sortedPrices.map(([martName, p]) => {
                     const isMin = p.price === lowestPrice;
                     const martMeta = MARTS.find((m) => m.name === martName) || { color: "bg-slate-400" };
 
@@ -415,9 +462,12 @@ const PriceComparison = ({ currentLang }) => {
                           {martName}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className={`font-black ${isMin ? "text-emerald-600 text-sm" : "text-slate-700"}`}>
-                            €{p.price.toFixed(2)}
-                          </span>
+                          <div className="flex items-center">
+                            <span className={`font-black ${isMin ? "text-emerald-600 text-sm" : "text-slate-700"}`}>
+                              €{p.price.toFixed(2)}
+                            </span>
+                            {renderPriceChange(p.price, p.prevPrice)}
+                          </div>
                           <a
                             href={p.url}
                             target="_blank"
@@ -451,9 +501,6 @@ const PriceComparison = ({ currentLang }) => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-black text-slate-800">{selectedItem.nameKo}</h3>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                    {selectedItem.packType === "single" ? `📦` : `🎁`}
-                  </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">{selectedItem.nameEn}</p>
               </div>
@@ -482,33 +529,38 @@ const PriceComparison = ({ currentLang }) => {
             <h4 className="text-xs font-bold text-slate-400 mb-3 uppercase">{t.modal_title}</h4>
 
             <div className="space-y-3">
-              {Object.entries(selectedItem.prices).map(([martName, p]) => (
-                <div
-                  key={martName}
-                  className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 border border-slate-100"
-                >
-                  <div>
-                    <span className="font-bold text-slate-800 text-sm block">{martName}</span>
-                    {p.packSize && (
-                      <span className="text-[11px] text-slate-400">
-                        {t.capacity}: {p.packSize} ({p.packType === "single" ? t.single : t.bundle})
-                      </span>
-                    )}
-                  </div>
+              {Object.entries(selectedItem.prices)
+                .sort(([, a], [, b]) => a.price - b.price)
+                .map(([martName, p]) => (
+                  <div
+                    key={martName}
+                    className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 border border-slate-100"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-800 text-sm block">{martName}</span>
+                      {p.packSize && (
+                        <span className="text-[11px] text-slate-400">
+                          {t.capacity}: {p.packSize}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="font-black text-slate-900 text-base">€{p.price.toFixed(2)}</span>
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-colors shadow-sm"
-                    >
-                      {t.buy_now} ↗
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="font-black text-slate-900 text-base block">€{p.price.toFixed(2)}</span>
+                        {renderPriceChange(p.price, p.prevPrice)}
+                      </div>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-colors shadow-sm"
+                      >
+                        {t.buy_now} ↗
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         </div>
