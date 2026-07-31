@@ -165,14 +165,13 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         return false;
       }
 
-      // 2. 세부 카테고리 필터 (DB category 우선 검사 -> 키워드 보완)
       if (subCatFilter !== "all") {
-        const itemSubCategory = (item.subCategory || "").toLowerCase();
-
-        // 2-1. DB에 "living" 등의 값이 지정되어 있을 때
+        const itemSubCategory = (item.subCategory || "").toLowerCase(); // 👈 여기에 들어가야 해요!
+        
         if (itemSubCategory) {
           if (itemSubCategory !== subCatFilter) return false;
         } else {
+
           // 2-2. DB에 값이 없을 때 키워드로 보완
           const targetSub = SUB_CATEGORIES.find((s) => s.id === subCatFilter);
           if (targetSub && targetSub.keywords) {
