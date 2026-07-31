@@ -34,10 +34,12 @@ const HomeView = ({ currentLang, setCurrentLang, recipes = [] }) => {
   };
 
   const popularItems = [
-    { name: "신라면 (Shin Ramyun)", tag: "BEST", price: "0,89 € ~", icon: "🍜" },
-    { name: "종가집 김치 (Kimchi)", tag: "HOT", price: "3,49 € ~", icon: "🥬" },
-    { name: "조선미녀 선크림 (Beauty of Joseon)", tag: "K-BEAUTY", price: "11,90 € ~", icon: "✨" },
-    { name: "불닭볶음면 (Buldak)", tag: "POPULAR", price: "1,19 € ~", icon: "🔥" },
+    { name: "신라면 (Shin Ramyun)", tag: "BEST", price: "1,19 € ~", icon: "🍜" },
+    { name: "종가집 김치 (Kimchi)", tag: "HOT", price: "6,42 € ~", icon: "🥬" },
+    { name: "메디큐브 부스 (medicube AGE-R Booster Pro)", tag: "K-BEAUTY", price: "138,95 € ~", icon: "✨" },
+    { name: "불닭볶음면 (Buldak)", tag: "POPULAR", price: "1,39 € ~", icon: "🔥" },
+    { name: "짜파게티(Chapagetti)", tag: "TRENDING", price: "1,19 € ~", icon: "🍝" },
+    { name: "PDRN 크림(PDRN capsule cream)", tag: "K-BEAUTY", price: "20,99 € ~", icon: "💧" },
   ];
 
   return (
