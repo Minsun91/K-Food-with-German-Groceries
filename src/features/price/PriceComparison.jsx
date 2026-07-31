@@ -19,7 +19,6 @@ const MARTS = [
   { id: "sephora", name: "Sephora", color: "bg-slate-900" },
 ];
 
-// 🔥 living 카테고리 적용 및 키워드 보완
 const SUB_CATEGORIES = [
   { id: "all", name: "전체", emoji: "🏷️" },
   { id: "noodle", name: "라면", emoji: "🍜", keywords: ["라면", "면", "udon", "noodle", "ramen"] },
@@ -42,18 +41,16 @@ const PriceComparison = ({ currentLang }) => {
     
     const [searchParams, setSearchParams] = useSearchParams();
 
-const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
+  const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
   const subCatFilter = searchParams.get("sub") || "all";
   const urlSearchTerm = searchParams.get("q") || searchParams.get("search") || "";
   const selectedItemName = searchParams.get("item") || null;
   const packFilter = searchParams.get("pack") || "all";
 
-  // 🔥 한글 입력 씹힘/자음 분리 방지를 위한 Local State
   const [searchInput, setSearchInput] = useState(urlSearchTerm);
   const [rawPrices, setRawPrices] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // URL searchParam 변경 시 local state 동기화
   useEffect(() => {
     setSearchInput(urlSearchTerm);
   }, [urlSearchTerm]);
@@ -72,14 +69,18 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
     else setSearchParams({});
   };
 
-  // 🔥 검색창 입력 시 한글 조합 유지
   const handleSearchChange = (e) => {
     const val = e.target.value;
     setSearchInput(val);
     updateQueryParams({ q: val });
   };
 
-  // Firestore DB 로드
+  // 🔥 getLowestPrice 함수를 위쪽으로 끌어올림 (에러 방지)
+  const getLowestPrice = (pricesMap) => {
+    const values = Object.values(pricesMap).map((p) => p.price).filter((p) => p > 0);
+    return values.length > 0 ? Math.min(...values) : null;
+  };
+
   useEffect(() => {
     if (!categoryTab) return;
 
@@ -115,7 +116,6 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
     fetchFirestoreData();
   }, [categoryTab]);
 
-  // 데이터 그룹화 및 category 필드 보존
   const groupedProducts = useMemo(() => {
     if (!rawPrices || rawPrices.length === 0) return [];
 
@@ -136,10 +136,10 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
           nameKo: cleanKeyword,
           nameEn: entry.item || cleanKeyword,
           mainCategory: categoryTab,
-          // 🔥 DB에 정해져있는 subCategory 또는 category 값 저장 (예: "living")
           subCategory: entry.subCategory || entry.category || null, 
           packType: pType,
           prices: {},
+          updatedAt: entry.updatedAt || null, // updatedAt 필드 반영
         });
       }
 
@@ -158,23 +158,18 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
     return Array.from(map.values());
   }, [rawPrices, categoryTab]);
 
-  // 🔥 DB의 living 필드 및 키워드 혼용 판별 + 필터링
   const filteredProducts = useMemo(() => {
-    // 1. 조건에 맞는 상품들만 골라내기 (Filter)
     const filtered = groupedProducts.filter((item) => {
-      // single / bundle 필터
       if (packFilter !== "all" && item.packType !== packFilter) {
         return false;
       }
 
-      // 세부 카테고리 필터
       if (subCatFilter !== "all") {
         const itemSubCategory = (item.subCategory || "").toLowerCase();
         
         if (itemSubCategory) {
           if (itemSubCategory !== subCatFilter) return false;
         } else {
-          // DB에 값이 없을 때 키워드로 보완
           const targetSub = SUB_CATEGORIES.find((s) => s.id === subCatFilter);
           if (targetSub && targetSub.keywords) {
             const match = targetSub.keywords.some((kw) =>
@@ -185,23 +180,19 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         }
       }
 
-      // 검색어 필터
       if (!searchInput.trim()) return true;
       const term = searchInput.toLowerCase();
       return item.nameKo?.toLowerCase().includes(term) || item.nameEn?.toLowerCase().includes(term);
     });
 
-    // 2. 골라낸 상품들을 최신순(1순위) 및 최저가순(2순위)으로 정렬하기 (Sort)
     return filtered.sort((a, b) => {
-      // 최신 업데이트 기준 정렬 (updatedAt 기준 내림차순: 최신이 위로)
       const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       
       if (dateB !== dateA) {
-        return dateB - dateA; // 최신순
+        return dateB - dateA; 
       }
 
-      // 날짜가 같다면 최저가 기준 정렬 (저렴한 가격이 위로)
       const lowA = getLowestPrice(a.prices) || 999999;
       const lowB = getLowestPrice(b.prices) || 999999;
       return lowA - lowB;
@@ -212,11 +203,6 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
     if (!selectedItemName) return null;
     return groupedProducts.find((p) => p.id === selectedItemName) || null;
   }, [groupedProducts, selectedItemName]);
-
-  const getLowestPrice = (pricesMap) => {
-    const values = Object.values(pricesMap).map((p) => p.price).filter((p) => p > 0);
-    return values.length > 0 ? Math.min(...values) : null;
-  };
 
   const handleShareClick = (type, product, e) => {
     if (e) e.stopPropagation();
@@ -242,7 +228,7 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
     return (
       <div className="w-full max-w-5xl mx-auto px-4 py-16 text-center">
        <h1>{t.title_food}</h1>
-       <p className="text-slate-500 mb-10">{t.landing_sub}</p> {/* 👈 t.landing_sub 객체 접근으로 수정 */}
+       <p className="text-slate-500 mb-10">{t.landing_sub}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
           <button
             onClick={() => handleSelectCategory("food")}
@@ -301,7 +287,6 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         </div>
       </div>
 
-      {/* 세부 카테고리 필터 */}
       {categoryTab === "food" && (
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar">
           {SUB_CATEGORIES.map((sub) => (
@@ -320,7 +305,6 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         </div>
       )}
 
-      {/* 검색 바 & 싱글/번들 탭 */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-8">
         <input
           type="text"
@@ -358,8 +342,7 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         </div>
       </div>
 
-{/* 목록 */}
-{loading ? (
+      {loading ? (
         <div className="text-center py-20 text-slate-400 font-bold">
           <div className="text-3xl mb-2 animate-spin">🔄</div>
           {t.loading}
@@ -372,13 +355,12 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product, index) => {
             const lowestPrice = getLowestPrice(product.prices);
-            const isFirstItem = index === 0; // 👈 맨 위 첫 번째 카드 판별
+            const isFirstItem = index === 0;
 
             return (
               <div
                 key={product.id}
                 onClick={() => updateQueryParams({ item: product.id })}
-                // 👇 호버 애니메이션 및 첫 번째 카드 강조 효과 적용
                 className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between group ${
                   isFirstItem ? "border-2 border-indigo-500 shadow-md" : "border border-slate-100"
                 }`}
@@ -456,7 +438,6 @@ const categoryTab = searchParams.get("cat") || searchParams.get("tab") || null;
         </div>
       )}
 
-      {/* 상세 모달 */}
       {selectedItem && (
         <div
           className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
