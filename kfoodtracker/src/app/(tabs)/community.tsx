@@ -1,33 +1,27 @@
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
+import { auth } from '../../firebase';
 
-export default function CommunityScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>독일 수다방 💬</Text>
-      </View>
+const handlePressWrite = () => {
+  const currentUser = auth.currentUser;
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🇩🇪 프랑크푸르트 고아시아 신라면 할인하네요!</Text>
-          <Text style={styles.cardDesc}>오늘 갔더니 1.09유로에 세일 중입니다.</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>💄 메디큐브 직구 배송 얼마나 걸리나요?</Text>
-          <Text style={styles.cardDesc}>보통 3~5일이면 들어오는 것 같아요.</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+  // 익명 로그인 상태이거나 로그인이 안 되어 있는 경우
+  if (!currentUser || currentUser.isAnonymous) {
+    Alert.alert(
+      '로그인 필요',
+      '커뮤니티 글쓰기는 회원 로그인 후 이용할 수 있습니다. 마이페이지에서 로그인해 주세요!',
+      [
+        { text: '취소', style: 'cancel' },
+        { 
+          text: '마이페이지로 이동', 
+          onPress: () => {
+            // 라우터 경로에 맞게 수정 (예: router.push('/mypage'))
+          } 
+        }
+      ]
+    );
+    return;
+  }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  headerTitle: { fontSize: 20, fontWeight: '800' },
-  content: { padding: 16 },
-  card: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 10, elevation: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 4 },
-  cardDesc: { fontSize: 13, color: '#666' },
-});
+  // 정식 회원이면 글쓰기 페이지로 이동
+  // router.push('/write-post');
+};

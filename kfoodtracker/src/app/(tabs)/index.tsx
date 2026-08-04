@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -154,16 +155,21 @@ export default function HomeScreen() {
     if (supported) await Linking.openURL(url);
   };
 
-  const handleSubCategoryPress = (subCatId: string) => {
-  router.push({
-    pathname: '/(tabs)/compare',
-    params: { search: subCatId }, // 👈 '고추장' 대신 'sauce', 'snack' 등 id 자체를 전달!
-  });
-};
+  // 💡 플랫폼(웹/모바일) 환경에 구애받지 않는 안전한 알림 함수
+  const handleRequestBannerPress = () => {
+    const message = '찾으시는 한국 식품 이름을 남겨주시면 가격 비교 목록에 빠르게 추가해 드릴게요!';
+    if (Platform.OS === 'web') {
+      window.alert(message);
+    } else {
+      // 모바일 환경일 때만 동적으로 안전하게 호출
+      const { Alert } = require('react-native');
+      Alert.alert('상품 최저가 요청', message, [{ text: '확인' }]);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* 🌐 1. 상단 Header */}
         <View style={styles.header}>
           <View>
@@ -254,16 +260,15 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* 🔔 4. '최저가 요청' 컴팩트 Banner */}
+        {/* 🔔 4. '최저가 요청' 배너 (크기 확대) */}
         <View style={styles.horizontalPadding}>
-          <TouchableOpacity
-            style={styles.requestBanner}
-            activeOpacity={0.8}
-            onPress={() => openUrl('mailto:contact@kfoodtracker.com?subject=상품 최저가 요청')}
+          <TouchableOpacity 
+            style={styles.requestBannerContainer} 
+            onPress={handleRequestBannerPress}
           >
             <View style={styles.requestBannerLeft}>
               <Text style={styles.requestBannerIcon}>💡</Text>
-              <View>
+              <View style={styles.requestTextWrapper}>
                 <Text style={styles.requestBannerTitle}>{t.requestBannerTitle}</Text>
                 <Text style={styles.requestBannerSub}>{t.requestBannerSub}</Text>
               </View>
@@ -331,12 +336,13 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
+  scrollContent: { paddingBottom: 30 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
   headerSubtitle: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 2 },
@@ -346,14 +352,13 @@ const styles = StyleSheet.create({
   langText: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
   langTextActive: { color: '#111827' },
 
-  /* 카테고리 퀵 메뉴 스타일 */
-  categoryContainer: { marginVertical: 8 },
+  categoryContainer: { marginVertical: 12 },
   categoryCard: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 1,
@@ -363,13 +368,13 @@ const styles = StyleSheet.create({
   categoryIcon: { fontSize: 16, marginRight: 6 },
   categoryLabel: { fontSize: 13, fontWeight: '700', color: '#374151' },
 
-  sectionMargin: { marginVertical: 12 },
+  sectionMargin: { marginVertical: 20 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
   moreText: { fontSize: 12, color: '#FF4757', fontWeight: '700' },
@@ -394,40 +399,39 @@ const styles = StyleSheet.create({
   priceLabel: { fontSize: 10, color: '#9CA3AF', marginRight: 3 },
   itemPrice: { fontSize: 14, fontWeight: '900', color: '#FF4757' },
 
-  /* 최저가 요청 컴팩트 배너 */
-  requestBanner: {
+  requestBannerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#1E293B',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderRadius: 14,
+    marginVertical: 14,
   },
-  requestBannerLeft: { flexDirection: 'row', alignItems: 'center' },
-  requestBannerIcon: { fontSize: 20, marginRight: 12 },
-  requestBannerTitle: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  requestBannerSub: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
-  requestBannerArrow: { fontSize: 14, color: '#FF4757', fontWeight: '800' },
+  requestBannerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  requestBannerIcon: { fontSize: 26, marginRight: 14 },
+  requestTextWrapper: { flex: 1 },
+  requestBannerTitle: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  requestBannerSub: { fontSize: 12, color: '#94A3B8', marginTop: 3 },
+  requestBannerArrow: { fontSize: 16, color: '#FF4757', fontWeight: '800', marginLeft: 8 },
 
-  section: { marginVertical: 8 },
+  section: { marginVertical: 16 },
 
-  /* 하단 슬림 배너 스타일 */
   compactCardYellow: {
     backgroundColor: '#FFFBEB',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   compactCardBlue: {
     backgroundColor: '#EFF6FF',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
@@ -439,7 +443,7 @@ const styles = StyleSheet.create({
   compactBadgeBlue: { backgroundColor: '#2563EB', color: '#FFF', fontSize: 8, fontWeight: '800', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, marginRight: 6 },
   compactTitle: { fontSize: 12, fontWeight: '700', color: '#1F2937' },
   jobHighlight: { color: '#2563EB', fontWeight: '800' },
-  compactDesc: { fontSize: 11, color: '#6B7280', marginTop: 1 },
+  compactDesc: { fontSize: 11, color: '#6B7280', marginTop: 2 },
 
   compactBtnYellow: { backgroundColor: '#F59E0B', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
   compactBtnTextYellow: { color: '#FFF', fontSize: 11, fontWeight: '700' },
@@ -448,13 +452,13 @@ const styles = StyleSheet.create({
 
   footer: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 28,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    marginTop: 16,
+    marginTop: 24,
   },
-  footerBrand: { fontSize: 14, fontWeight: '800', color: '#374151', marginBottom: 4 },
+  footerBrand: { fontSize: 14, fontWeight: '800', color: '#374151', marginBottom: 6 },
   footerText: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
   footerContact: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
   footerCopyright: { fontSize: 11, color: '#9CA3AF' },
