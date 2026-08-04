@@ -1,6 +1,7 @@
 import { deleteUser } from 'firebase/auth';
 import { Linking } from 'react-native';
-
+import { Alert } from 'react-native';
+import { auth } from '../../firebase';
 // ... 기존 코드 내 ...
 
 // 1. 개인정보처리방침 열기 (Notion 등 웹 링크)

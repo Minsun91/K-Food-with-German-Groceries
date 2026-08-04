@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
+import {Alert,
   FlatList,
   Linking,
   Platform,
@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase'; // 💡 본인의 firebase 경로에 맞춰 확인하세요.
+import { db, auth } from '../../firebase'; 
 
 // 마트별 이모지 리턴 함수
 const getMartEmoji = (martName: string = '') => {
@@ -155,16 +155,79 @@ export default function HomeScreen() {
     if (supported) await Linking.openURL(url);
   };
 
+  // 💡 1. 최저가 요청 배너 / 커뮤니티 이동 시 로그인 상태 확인 및 팝업 함수
+  const handleCheckAuthAndNavigate = (target: 'community' | 'request') => {
+    const currentUser = auth.currentUser;
+
+    // 로그인이 안 되어 있거나 익명 로그인 상태인 경우
+    if (!currentUser || currentUser.isAnonymous) {
+      const title = target === 'request' ? '로그인 필요 (최저가 요청)' : '로그인 필요 (커뮤니티)';
+      const message = '회원 로그인 후 이용할 수 있습니다. 마이페이지에서 로그인하시겠어요?';
+
+      if (Platform.OS === 'web') {
+        if (window.confirm(message)) {
+          router.push('/(tabs)/mypage'); // 마이페이지 경로
+        }
+      } else {
+        Alert.alert(
+          title,
+          message,
+          [
+            { text: '취소', style: 'cancel' },
+            { 
+              text: '커뮤니티 구경하기', 
+              onPress: () => router.push('/(tabs)/community') // 비회원도 구경은 가능하게
+            },
+            { 
+              text: '마이페이지(로그인)로 이동', 
+              onPress: () => router.push('/(tabs)/mypage') 
+            }
+          ]
+        );
+      }
+      return;
+    }
+
+    // 정식 로그인이 되어 있는 경우 바로 해당 페이지로 이동
+    if (target === 'request') {
+      const reqMessage = '찾으시는 한국 식품 이름을 남겨주시면 가격 비교 목록에 빠르게 추가해 드릴게요!';
+      Alert.alert('상품 최저가 요청', reqMessage, [{ text: '확인' }]);
+    } else {
+      router.push('/(tabs)/community');
+    }
+  };
+
   // 💡 플랫폼(웹/모바일) 환경에 구애받지 않는 안전한 알림 함수
   const handleRequestBannerPress = () => {
-    const message = '찾으시는 한국 식품 이름을 남겨주시면 가격 비교 목록에 빠르게 추가해 드릴게요!';
-    if (Platform.OS === 'web') {
-      window.alert(message);
-    } else {
-      // 모바일 환경일 때만 동적으로 안전하게 호출
-      const { Alert } = require('react-native');
-      Alert.alert('상품 최저가 요청', message, [{ text: '확인' }]);
+    const currentUser = auth.currentUser;
+
+    // 비로그인이거나 익명 로그인 상태인 경우
+    if (!currentUser || currentUser.isAnonymous) {
+      const message = '커뮤니티 글쓰기 및 최저가 요청은 회원 로그인 후 이용할 수 있습니다. 마이페이지에서 로그인해 주세요!';
+      
+      if (Platform.OS === 'web') {
+        if (window.confirm(message)) {
+          router.push('/(tabs)/mypage'); // 마이페이지 경로에 맞게 수정
+        }
+      } else {
+        const { Alert } = require('react-native');
+        Alert.alert(
+          '로그인 필요',
+          message,
+          [
+            { text: '취소', style: 'cancel' },
+            { 
+              text: '마이페이지로 이동', 
+              onPress: () => router.push('/(tabs)/mypage') // 마이페이지 경로에 맞게 수정
+            }
+          ]
+        );
+      }
+      return;
     }
+
+    // 정식 로그인이 되어 있는 경우 바로 커뮤니티 페이지(또는 작성 페이지)로 이동
+    router.push('/(tabs)/community');
   };
 
   return (
@@ -189,26 +252,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* 📱 2. 메인 콘텐츠 1: 카테고리 퀵 메뉴 */}
-        <View style={styles.categoryContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalPadding}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={styles.categoryCard}
-                onPress={() => {
-                  router.push({
-                    pathname: '/(tabs)/compare',
-                    params: { search: cat.keyword },
-                  });
-                }}
-              >
-                <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                <Text style={styles.categoryLabel}>{cat.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
 
         {/* 🔥 3. 메인 콘텐츠 2: 실시간 최저가 핫딜 (횡스크롤) */}
         <View style={styles.sectionMargin}>
@@ -260,17 +303,19 @@ export default function HomeScreen() {
           />
         </View>
 
+
         {/* 🔔 4. '최저가 요청' 배너 (크기 확대) */}
+        {/* 💬 커뮤니티 바로가기 배너 (기존 최저가 요청 배너 디자인 & 색상 유지) */}
         <View style={styles.horizontalPadding}>
           <TouchableOpacity 
             style={styles.requestBannerContainer} 
-            onPress={handleRequestBannerPress}
+            onPress={() => handleCheckAuthAndNavigate('community')}
           >
             <View style={styles.requestBannerLeft}>
-              <Text style={styles.requestBannerIcon}>💡</Text>
+              <Text style={styles.requestBannerIcon}>💬</Text>
               <View style={styles.requestTextWrapper}>
-                <Text style={styles.requestBannerTitle}>{t.requestBannerTitle}</Text>
-                <Text style={styles.requestBannerSub}>{t.requestBannerSub}</Text>
+                <Text style={styles.requestBannerTitle}>독일 교민 커뮤니티</Text>
+                <Text style={styles.requestBannerSub}>이야기를 나누고 정보도 공유해 보세요!</Text>
               </View>
             </View>
             <Text style={styles.requestBannerArrow}>➔</Text>
