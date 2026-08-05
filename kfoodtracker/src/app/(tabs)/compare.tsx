@@ -14,8 +14,13 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../../firebase';
+import { signInAnonymously } from 'firebase/auth'
+import { TRANSLATIONS } from '../../constants/translations';
+
+const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
+const t = TRANSLATIONS[lang];
 
 const getMartEmoji = (martName: string = '') => {
   const name = martName.toLowerCase();
@@ -92,41 +97,6 @@ interface GroupedProduct {
   marts: MartInfo[];
 }
 
-const TRANSLATIONS = {
-  KR: {
-    title: '가격 비교',
-    placeholder: '상품명 또는 카테고리 검색',
-    catAll: '전체',
-    catFood: '식품',
-    catBeauty: '뷰티',
-    emptyText: '해당하는 상품이 없습니다 😅',
-    shareBtn: '공유 🔗',
-    shareMessage: (title: string, price: string, url: string) =>
-      `🔥 ${title} 최저가 떴어요! 지금 ${price}€에 득템하고 절약하세요! 👇\n\n👉 가격 확인하기: ${url}`,
-  },
-  EN: {
-    title: 'Price Comparison',
-    placeholder: 'Search product or category...',
-    catAll: 'All',
-    catFood: 'Food',
-    catBeauty: 'Beauty',
-    emptyText: 'No products found 😅',
-    shareBtn: 'Share 🔗',
-    shareMessage: (title: string, price: string, url: string) =>
-      `🔥 Lowest price for ${title}! Get it for ${price}€ and save big now! 👇\n\n👉 Check Price: ${url}`,
-  },
-  DE: {
-    title: 'Preisvergleich',
-    placeholder: 'Produkt oder Kategorie suchen...',
-    catAll: 'Alle',
-    catFood: 'Lebensmittel',
-    catBeauty: 'Beauty',
-    emptyText: 'Keine Produkte gefunden 😅',
-    shareBtn: 'Teilen 🔗',
-    shareMessage: (title: string, price: string, url: string) =>
-      `🔥 Bestpreis für ${title}! Jetzt für ${price}€ sichern und sparen! 👇\n\n👉 Preis prüfen: ${url}`,
-  },
-};
 
 const CATEGORY_MAP: Record<string, string[]> = {
   sauce: ['sauce', '소스', '양념', '장', '고추장', '된장', '간장', '카레', 'paste', 'curry'],
@@ -143,14 +113,27 @@ const MY_WEB_BASE_URL = 'https://kfoodtracker.com';
 
 export default function CompareScreen() {
   const params = useLocalSearchParams<{ search?: string }>();
-
   const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
   const [selectedCat, setSelectedCat] = useState<'all' | 'food' | 'beauty'>('all');
   const [search, setSearch] = useState('');
   const [groupedItems, setGroupedItems] = useState<GroupedProduct[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-
+  const [myFavorites, setMyFavorites] = useState<any[]>([]);
   const t = TRANSLATIONS[lang];
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setMyFavorites(docSnap.data().favorites || []);
+      }
+    });
+  
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (params.search) {
@@ -236,6 +219,38 @@ const BouncingNewBadge = ({ color = 'yellow' }: { color?: 'yellow' | 'blue' }) =
   );
 };
 
+const handleToggleFavorite = async (item: any) => {
+  const user = auth.currentUser;
+  if (!user) {
+    alert('로그인이 필요합니다!');
+    return;
+  }
+
+  const userDocRef = doc(db, 'users', user.uid);
+  const itemName = item.title || item.name;
+  const itemPrice = item.minPrice || item.price || 0;
+
+  // 이미 찜 되어있는지 확인
+  const exists = myFavorites.some((fav) => fav.name === itemName || fav.title === itemName);
+
+  let updatedFavorites;
+  if (exists) {
+    // 이미 있으면 제거
+    updatedFavorites = myFavorites.filter((fav) => fav.name !== itemName && fav.title !== itemName);
+  } else {
+    // 없으면 추가 (name과 price 구조 확실히 고정!)
+    updatedFavorites = [...myFavorites, { name: itemName, price: itemPrice }];
+  }
+
+  try {
+    // 파이어베이스에 즉시 업데이트
+    await setDoc(userDocRef, { favorites: updatedFavorites }, { merge: true });
+    setMyFavorites(updatedFavorites); // 화면 로컬 상태도 즉시 반영!
+  } catch (error) {
+    console.error('찜하기 실패:', error);
+  }
+};
+
   const processAndGroupData = (rawList: RawProduct[]) => {
     const map = new Map<string, GroupedProduct>();
 
@@ -287,6 +302,7 @@ const BouncingNewBadge = ({ color = 'yellow' }: { color?: 'yellow' | 'blue' }) =
     setGroupedItems(result);
   };
 
+  
 const handleShare = async (product: GroupedProduct) => {
   try {
     const encodedTitle = encodeURIComponent(product.title);
@@ -357,7 +373,7 @@ const openLink = (url?: string) => {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder={t.placeholder}
+          placeholder={t.placeholder} // 💡 다국어 플레이스홀더 적용
           value={search}
           onChangeText={setSearch}
         />
@@ -371,9 +387,9 @@ const openLink = (url?: string) => {
       {/* 3. 대카테고리 탭 */}
       <View style={styles.tabRow}>
         {[
-          { key: 'all', label: t.catAll },
-          { key: 'food', label: t.catFood },
-          { key: 'beauty', label: t.catBeauty },
+          { key: 'all', label: t.catAll },       // 💡 다국어 탭 적용
+          { key: 'food', label: t.catFood },     
+          { key: 'beauty', label: t.catBeauty }, 
         ].map((tab) => (
           <TouchableOpacity
             key={tab.key}
@@ -399,57 +415,65 @@ const openLink = (url?: string) => {
           contentContainerStyle={styles.listPadding}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{t.emptyText}</Text>
+              <Text style={styles.emptyText}>{t.emptyText}</Text> {/* 💡 다국어 빈 화면 문구 */}
             </View>
           }
-renderItem={({ item }) => (
-  <View style={styles.card}>
-    <View style={styles.cardHeader}>
-      {/* 왼쪽: 이모지 + NEW 뱃지 + 상품명 */}
-      <View style={styles.titleWrapper}>
-        {/* <Text style={{ fontSize: 16, marginRight: 4 }}>💄</Text> */}
-        
-        {/* 🟡 제목 바로 앞에 NEW 뱃지 배치 */}
-        <BouncingNewBadge color="yellow" />
-        
-        <Text style={styles.productTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-      </View>
-      {/* 오른쪽: 공유 버튼 (이제 절대 안 짤림!) */}
-      <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(item)}>
-        <Text style={styles.shareBtnText}>공유 🔗</Text>
-      </TouchableOpacity>
-    </View>
+          renderItem={({ item }) => {
+            const isFavorited = myFavorites.some((fav) => fav.name === item.title || fav.title === item.title);
 
-    <View style={styles.divider} />
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleWrapper}>
+                    <BouncingNewBadge color="yellow" />
+                    <Text style={styles.productTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </View>
 
-    <View style={styles.martListContainer}>
-                {item.marts.map((m, idx) => (
-                  <TouchableOpacity
-                    key={`${m.mart}_${idx}`}
-                    style={styles.martRow}
-                    onPress={() => openLink(m.link)}
-                    activeOpacity={0.6}
-                  >
-                    <View style={styles.martInfo}>
-                      <Text style={styles.martName}>
-                        {getMartEmoji(m.mart)} {m.mart}
-                      </Text>
-                      {idx === 0 && <Text style={styles.bestTag}>최저가몰</Text>}
-                    </View>
-
-                    <View style={styles.martPriceContainer}>
-                      <Text style={[styles.martPrice, idx === 0 && styles.bestPriceText]}>
-                        € {m.price.toFixed(2)}
-                      </Text>
-                      <Text style={styles.linkArrow}>➔</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity 
+                      style={styles.shareBtn} 
+                      onPress={() => handleToggleFavorite(item)}
+                    >
+                      <Text style={{ fontSize: 16 }}>{isFavorited ? '❤️' : '🤍'}</Text>
+                    </TouchableOpacity>
+          
+                    <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(item)}>
+                      <Text style={styles.shareBtnText}>공유 🔗</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+          
+                <View style={styles.divider} />
+          
+                <View style={styles.martListContainer}>
+                  {item.marts.map((m, idx) => (
+                    <TouchableOpacity
+                      key={`${m.mart}_${idx}`}
+                      style={styles.martRow}
+                      onPress={() => openLink(m.link)}
+                      activeOpacity={0.6}
+                    >
+                      <View style={styles.martInfo}>
+                        <Text style={styles.martName}>
+                          {getMartEmoji(m.mart)} {m.mart}
+                        </Text>
+                        {idx === 0 && <Text style={styles.bestTag}>최저가몰</Text>}
+                      </View>
+          
+                      <View style={styles.martPriceContainer}>
+                        <Text style={[styles.martPrice, idx === 0 && styles.bestPriceText]}>
+                          € {m.price.toFixed(2)}
+                        </Text>
+                        <Text style={styles.linkArrow}>➔</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -465,6 +489,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
+
+  
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
   langSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 8, padding: 2 },
   langBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },

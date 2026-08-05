@@ -9,8 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -20,69 +19,79 @@ import {
 } from 'firebase/auth';
 import { auth } from '../../firebase';
 
-WebBrowser.maybeCompleteAuthSession();
 
 export default function MyPageScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com', // 👈 본인의 Firebase 웹 클라이언트 ID 입력
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-  });
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      offlineAccess: false,
+    });
+  }, []);
 
-  // 인증 상태 변화 감지 콘솔
+  // 1. 인증 상태 변화 감지
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('👤 [Auth State Changed] 현재 유저:', currentUser?.email || currentUser?.uid || '비로그인');
+      console.log(
+        '👤 [Auth State Changed] 현재 유저:',
+        currentUser?.email || currentUser?.uid || '비로그인'
+      );
       setUser(currentUser);
     });
     return () => unsubscribe();
   }, []);
 
-  // 구글 로그인 응답 결과 추적 콘솔
-  useEffect(() => {
-    console.log('🔄 [Google Response Updated]', response);
-
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      console.log('🔑 [Google Success] id_token 획득 성공:', id_token ? '존재함' : '없음');
-
-      if (id_token) {
-        const credential = GoogleAuthProvider.credential(id_token);
-        setLoading(true);
-        signInWithCredential(auth, credential)
-          .then(() => {
-            console.log('✅ [Firebase Login Success] 구글 계정 연동 완료');
-            Alert.alert('환영합니다!', '구글 로그인이 완료되었습니다.');
-          })
-          .catch((error) => {
-            console.error('❌ [Firebase Login Error] 구글 계정 연동 실패:', error);
-            Alert.alert('로그인 실패', '구글 계정 인증 중 문제가 발생했습니다.');
-          })
-          .finally(() => setLoading(false));
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+        console.log('🚀 Google Login');
+  
+      const response = await GoogleSignin.signIn();
+  
+      console.log('Google Response:', response);
+  
+      if (response.type !== 'success') {
+        console.log('사용자가 로그인 취소');
+        return;
       }
-    } else if (response?.type === 'error') {
-      console.error('❌ [Google Response Error]', response.error);
+  
+      const idToken = response.data.idToken;
+  
+      if (!idToken) {
+        Alert.alert('오류', 'Google ID Token을 받지 못했습니다.');
+        return;
+      }
+  
+      const credential = GoogleAuthProvider.credential(idToken);
+  
+      await signInWithCredential(auth, credential);
+  
+      Alert.alert('환영합니다!', '구글 로그인이 완료되었습니다.');
+    } catch (error: any) {
+      console.error(error);
+  
+      Alert.alert(
+        '로그인 실패',
+        error?.message ?? '알 수 없는 오류가 발생했습니다.'
+      );
+    } finally {
+      setLoading(false);
     }
-  }, [response]);
-
-  const handleGoogleLogin = () => {
-    console.log('🚀 [Google Login Triggered] 계정 선택 창 호출 시도');
-    promptAsync({
-      prompt: 'select_account',
-    } as any);
   };
 
   const handleLogout = async () => {
     try {
+      await GoogleSignin.signOut();
       await signOut(auth);
-      console.log('🚪 [Logout Success]');
+  
+      console.log('🚪 Logout Success');
+  
       Alert.alert('로그아웃', '성공적으로 로그아웃되었습니다.');
     } catch (error) {
-      console.error('❌ [Logout Error]', error);
-      Alert.alert('오류', '로그아웃 중 문제가 발생했습니다.');
+      console.error(error);
     }
   };
 
@@ -105,7 +114,6 @@ export default function MyPageScreen() {
           ) : (
             <TouchableOpacity
               style={styles.googleBtn}
-              disabled={!request}
               onPress={handleGoogleLogin}
               activeOpacity={0.8}
             >

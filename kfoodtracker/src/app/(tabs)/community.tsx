@@ -20,7 +20,7 @@ export default function CommunityScreen() {
           { 
             text: '마이페이지로 이동', 
             onPress: () => {
-              router.push('/(tabs)/mypagescreen');
+              router.push('/(tabs)/mypage_anno');
             } 
           }
         ]

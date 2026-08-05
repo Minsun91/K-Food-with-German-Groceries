@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kfoodtracker",
+    "owner": "minsun716",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
