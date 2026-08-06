@@ -5,22 +5,25 @@ import {
   FlatList,
   Linking,
   Platform,
-  SafeAreaView,
   Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { signInAnonymously } from 'firebase/auth'
 import { TRANSLATIONS } from '../../constants/translations';
+import { useRouter } from 'expo-router';
 
 const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
 const t = TRANSLATIONS[lang];
+const router = useRouter();
 
 const getMartEmoji = (martName: string = '') => {
   const name = martName.toLowerCase();
@@ -220,37 +223,46 @@ const BouncingNewBadge = ({ color = 'yellow' }: { color?: 'yellow' | 'blue' }) =
 };
 
 const handleToggleFavorite = async (item: any) => {
-  const user = auth.currentUser;
-  if (!user) {
-    alert('로그인이 필요합니다!');
+  const currentUser = auth.currentUser;
+  
+  // 💡 currentUser가 없을 때만 마이페이지로 유도
+  if (!currentUser) {
+    Alert.alert(
+      t.alertLoginTitle,
+      t.alertLoginMsg,
+      [
+        { text: t.alertCancel, style: 'cancel' },
+        { 
+          text: t.alertGoMypage, 
+          onPress: () => {
+            router.push('/(tabs)/mypage_anno');
+          } 
+        }
+      ]
+    );
     return;
   }
 
-  const userDocRef = doc(db, 'users', user.uid);
+  const userDocRef = doc(db, 'users', currentUser.uid);
   const itemName = item.title || item.name;
   const itemPrice = item.minPrice || item.price || 0;
 
-  // 이미 찜 되어있는지 확인
   const exists = myFavorites.some((fav) => fav.name === itemName || fav.title === itemName);
 
   let updatedFavorites;
   if (exists) {
-    // 이미 있으면 제거
     updatedFavorites = myFavorites.filter((fav) => fav.name !== itemName && fav.title !== itemName);
   } else {
-    // 없으면 추가 (name과 price 구조 확실히 고정!)
     updatedFavorites = [...myFavorites, { name: itemName, price: itemPrice }];
   }
 
   try {
-    // 파이어베이스에 즉시 업데이트
     await setDoc(userDocRef, { favorites: updatedFavorites }, { merge: true });
-    setMyFavorites(updatedFavorites); // 화면 로컬 상태도 즉시 반영!
+    setMyFavorites(updatedFavorites);
   } catch (error) {
     console.error('찜하기 실패:', error);
   }
 };
-
   const processAndGroupData = (rawList: RawProduct[]) => {
     const map = new Map<string, GroupedProduct>();
 
@@ -440,7 +452,7 @@ const openLink = (url?: string) => {
                     </TouchableOpacity>
           
                     <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(item)}>
-                      <Text style={styles.shareBtnText}>공유 🔗</Text>
+                      <Text style={styles.shareBtnText}>{t.shareBtn}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

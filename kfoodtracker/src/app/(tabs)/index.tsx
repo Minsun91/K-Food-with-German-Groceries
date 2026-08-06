@@ -5,10 +5,10 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Linking,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { TRANSLATIONS } from '../../constants/translations';
 
@@ -56,7 +56,7 @@ export default function HomeScreen() {
             <Text style={styles.title}>{t.title}</Text>
           </View>
 
-          {/* 2. 카테고리 탭 영역 */}
+          {/* 2. 카테고리 탭 영역 (다국어 자동 연동) */}
           <View style={styles.categoryContainer}>
             {t.categories.map((cat) => (
               <TouchableOpacity
@@ -75,7 +75,7 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          {/* 🔥 3. 메인 콘텐츠 2: 실시간 최저가 핫딜 (8개 횡스크롤) */}
+          {/* 3. 메인 콘텐츠: 실시간 최저가 핫딜 */}
           <View style={styles.sectionMargin}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t.popularTitle}</Text>
@@ -123,7 +123,7 @@ export default function HomeScreen() {
           {/* 4. 최저가 등록 요청 배너 */}
           <TouchableOpacity 
             style={styles.requestBanner}
-            onPress={() => router.push('/(tabs)/community')}
+            onPress={() => router.push('/(tabs)/mypage_anno')}
           >
             <Text style={styles.requestBannerTitle}>{t.requestBannerTitle}</Text>
             <Text style={styles.requestBannerSub}>{t.requestBannerSub}</Text>
@@ -171,7 +171,6 @@ export default function HomeScreen() {
   );
 }
 
-// 🎨 스타일 정의 (infoCardDesc 누락분 추가 완료)
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
   container: { flex: 1, backgroundColor: '#F8F9FA' },
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
   infoCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 },
   infoCardBadge: { fontSize: 10, fontWeight: '700', color: '#D97706', backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden' },
   infoCardTitle: { fontSize: 15, fontWeight: '700', color: '#1F2937' },
-  infoCardDesc: { fontSize: 13, color: '#6B7280', marginBottom: 12, lineHeight: 18 }, // 💡 에러 나던 부분 추가 완료!
+  infoCardDesc: { fontSize: 13, color: '#6B7280', marginBottom: 12, lineHeight: 18 },
   infoCardBtn: { backgroundColor: '#FF4757', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   infoCardBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
   footerContainer: { marginTop: 10, alignItems: 'center', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },

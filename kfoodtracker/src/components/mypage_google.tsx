@@ -3,12 +3,12 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   GoogleAuthProvider,
@@ -17,7 +17,7 @@ import {
   signOut,
   User,
 } from 'firebase/auth';
-import { auth } from '../../firebase';
+import { auth } from '../firebase';
 
 
 export default function MyPageScreen() {

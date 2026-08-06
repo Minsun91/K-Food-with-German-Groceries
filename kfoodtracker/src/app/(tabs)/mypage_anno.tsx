@@ -5,47 +5,69 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView, // 💡 아이폰 상단 잘림 방지
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../../firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { TRANSLATIONS } from '../../constants/translations'; // 💡 다국어 파일 임포트
+import { TRANSLATIONS } from '../../constants/translations';
 
 export default function MyPageAnno() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
-  const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR'); // 💡 언어 상태 추가
+  const [myPosts, setMyPosts] = useState<any[]>([]); // 💡 내가 쓴 글 목록 상태 추가
+  const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
   const router = useRouter();
 
-  const t = TRANSLATIONS[lang]; // 현재 언어 딕셔너리
+  const t = TRANSLATIONS[lang];
 
-  // 유저 로그인 상태 및 찜 목록 실시간 감지
+  // 유저 로그인 상태 및 찜 목록, 내가 쓴 글 실시간 감지
   useEffect(() => {
     let unsubscribeDoc: (() => void) | undefined;
+    let unsubscribePosts: (() => void) | undefined;
 
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setIsLoggedIn(true);
         const userDocRef = doc(db, 'users', user.uid);
         
+        const userSnap = await getDoc(userDocRef);
+        if (!userSnap.exists()) {
+          await setDoc(userDocRef, { favorites: [] });
+        }
+
+        // 1. 찜 목록 실시간 동기화
         unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data();
             setFavorites(userData.favorites || []);
           }
         });
+
+        // 2. 내가 쓴 글 목록 실시간 동기화 (authorId가 현재 유저 UID와 일치하는 것)
+        const q = query(collection(db, 'posts'), where('authorId', '==', user.uid));
+        unsubscribePosts = onSnapshot(q, (snapshot) => {
+          const postList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setMyPosts(postList);
+        });
+
       } else {
         setIsLoggedIn(false);
         setFavorites([]);
+        setMyPosts([]);
         if (unsubscribeDoc) unsubscribeDoc();
+        if (unsubscribePosts) unsubscribePosts();
       }
     });
 
     return () => {
       unsubscribeAuth();
       if (unsubscribeDoc) unsubscribeDoc();
+      if (unsubscribePosts) unsubscribePosts();
     };
   }, []);
 
@@ -69,7 +91,7 @@ export default function MyPageAnno() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* 💡 상단 언어 선택 토글 버튼 바 */}
+        {/* 상단 언어 선택 토글 버튼 바 */}
         <View style={styles.topBar}>
           <View style={styles.langSelector}>
             {(['KR', 'EN', 'DE'] as const).map((l) => (
@@ -122,6 +144,7 @@ export default function MyPageAnno() {
             )}
           </View>
 
+          {/* 1. 내가 찜한 상품 섹션 */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>
               {lang === 'KR' ? '⭐ 내가 찜한 최저가 상품' : lang === 'EN' ? '⭐ My Favorite Products' : '⭐ Meine Favoriten'}
@@ -137,9 +160,6 @@ export default function MyPageAnno() {
               <View style={styles.emptyBox}>
                 <Text style={styles.emptyText}>
                   {lang === 'KR' ? '아직 찜한 상품이 없어요!' : lang === 'EN' ? 'No favorites yet!' : 'Noch keine Favoriten!'}
-                </Text>
-                <Text style={styles.emptySubText}>
-                  {lang === 'KR' ? '최저가 비교 화면에서 하트를 눌러보세요.' : lang === 'EN' ? 'Tap the heart icon in the price comparison.' : 'Tippen Sie auf das Herzsymbol.'}
                 </Text>
               </View>
             ) : (
@@ -160,13 +180,43 @@ export default function MyPageAnno() {
               ))
             )}
           </View>
+
+          {/* 2. 내가 쓴 커뮤니티 글 섹션 */}
+          <View style={[styles.sectionContainer, { marginTop: 24 }]}>
+            <Text style={styles.sectionTitle}>
+              {lang === 'KR' ? '📝 내가 쓴 커뮤니티 글' : lang === 'EN' ? '📝 My Community Posts' : '📝 Meine Community-Beiträge'}
+            </Text>
+
+            {!isLoggedIn ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>
+                  {lang === 'KR' ? '로그인 후 작성한 글을 확인할 수 있어요.' : lang === 'EN' ? 'Login to view your posts.' : 'Bitte anmelden.'}
+                </Text>
+              </View>
+            ) : myPosts.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>
+                  {lang === 'KR' ? '아직 작성한 글이 없어요!' : lang === 'EN' ? 'No posts written yet!' : 'Noch keine Beiträge geschrieben!'}
+                </Text>
+              </View>
+            ) : (
+              myPosts.map((post) => (
+                <View key={post.id} style={styles.itemCard}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.itemName} numberOfLines={1}>{post.title}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>{post.content}</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
 
-// 💡 스타일 예시 (safeArea와 상단 언어 선택 버튼 스타일 추가)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -206,6 +256,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
   profileContainer: {
     alignItems: 'center',
@@ -244,7 +295,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   sectionContainer: {
-    flex: 1,
+    width: '100%',
   },
   sectionTitle: {
     fontSize: 16,
@@ -264,11 +315,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4B5563',
     fontWeight: '600',
-  },
-  emptySubText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 4,
   },
   itemCard: {
     backgroundColor: '#FFFFFF',
