@@ -40,6 +40,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>💬</Text>,
         }}
       />
+      {/* 💡 이 부분을 추가해서 마이페이지(프로필) 탭 디자인을 맞추세요 */}
+      <Tabs.Screen
+        name="mypage"
+        options={{
+          title: '프로필', // 원하시는 이름(예: 프로필)으로 지정
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👤</Text>,
+        }}
+      />
     </Tabs>
   );
 }

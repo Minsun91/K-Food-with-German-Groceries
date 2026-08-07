@@ -21,8 +21,6 @@ import { signInAnonymously } from 'firebase/auth'
 import { TRANSLATIONS } from '../../constants/translations';
 import { useRouter } from 'expo-router';
 
-const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
-const t = TRANSLATIONS[lang];
 const router = useRouter();
 
 const getMartEmoji = (martName: string = '') => {
@@ -235,7 +233,7 @@ const handleToggleFavorite = async (item: any) => {
         { 
           text: t.alertGoMypage, 
           onPress: () => {
-            router.push('/(tabs)/mypage_anno');
+            router.push('/(tabs)/mypage');
           } 
         }
       ]
@@ -365,21 +363,20 @@ const openLink = (url?: string) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 1. 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.title}</Text>
-        <View style={styles.langSelector}>
-          {(['KR', 'EN', 'DE'] as const).map((l) => (
-            <TouchableOpacity
-              key={l}
-              onPress={() => setLang(l)}
-              style={[styles.langBtn, lang === l && styles.langBtnActive]}
-            >
-              <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+             {/* 상단 언어 선택 토글 버튼 바 */}
+              <View style={styles.topBar}>
+                <View style={styles.langSelector}>
+                  {(['KR', 'EN', 'DE'] as const).map((l) => (
+                    <TouchableOpacity
+                      key={l}
+                      onPress={() => setLang(l)}
+                      style={[styles.langBtn, lang === l && styles.langBtnActive]}
+                    >
+                      <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
 
       {/* 2. 검색창 */}
       <View style={styles.searchContainer}>
@@ -493,23 +490,32 @@ const openLink = (url?: string) => {
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#F8F9FA' }, // 커뮤니티와 동일한 안전 영역 추가
   container: { flex: 1, backgroundColor: '#F8F9FA' },
+  
+ topBar: { 
+    paddingHorizontal: 20, 
+    paddingTop: 6, 
+    paddingBottom: 4, 
+    alignItems: 'flex-end', 
+    backgroundColor: 'transparent' // 흰색 배경 제거하여 공백 없애기
+  },
+  
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
-
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1F2937' }, // 커뮤니티 폰트 컬러와 통일감 부여
   
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  langSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 8, padding: 2 },
-  langBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  langSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 6, padding: 2 },
+  langBtn: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   langBtnActive: { backgroundColor: '#FFFFFF' },
-  langText: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
-  langTextActive: { color: '#111827' },
-
+  langText: { fontSize: 11, color: '#4B5563', fontWeight: '600' },
+  langTextActive: { fontWeight: 'bold', color: '#FF4757' },
+  shareBtnText: { fontSize: 10, color: '#6B7280', fontWeight: '700' },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -549,39 +555,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-cardHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    width: '100%', // 카드 너비에 딱 맞춤
+    width: '100%',
   },
   titleWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1, // 공유 버튼 공간 빼고 남은 공간 다 쓰기
-    marginRight: 10, // 공유 버튼과의 간격
+    flex: 1,
+    marginRight: 10,
   },
   productTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#111827',
     marginLeft: 6,
-    flexShrink: 1, // 글자 길면 알아서 '...' 처리
+    flexShrink: 1,
   },
   shareBtn: {
     paddingVertical: 4,
     paddingHorizontal: 6,
     marginTop: 6,
   },
-  shareText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
+  shareText: { fontSize: 12, color: '#6B7280' },
   icon: { fontSize: 24, marginRight: 10 },
   packSizeText: { fontSize: 11, color: '#6B7280', marginTop: 2 },
 
-  // NEW 뱃지 스타일
   newBadge: {
     backgroundColor: '#FF4757',
     paddingHorizontal: 5,
@@ -589,17 +591,11 @@ cardHeader: {
     borderRadius: 4,
     marginLeft: 6,
   },
-  newBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '900',
-  },
+  newBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900' },
 
   minPriceBadge: { backgroundColor: '#FFF0F0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   minPriceLabel: { fontSize: 9, color: '#FF4757', fontWeight: '800' },
   minPriceValue: { fontSize: 13, color: '#FF4757', fontWeight: '900' },
-
-  shareBtnText: { fontSize: 10, color: '#6B7280', fontWeight: '700' },
 
   divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 10 },
 
@@ -631,7 +627,8 @@ cardHeader: {
   linkArrow: { fontSize: 11, color: '#9CA3AF' },
 
   emptyContainer: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },// 🎈 NEW 뱃지 스타일
+  emptyText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+  
   badgeBase: {
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -640,20 +637,8 @@ cardHeader: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badgeYellow: {
-    backgroundColor: '#FFD700', // 노란색
-  },
-  badgeBlue: {
-    backgroundColor: '#2563EB', // 파란색
-  },
-  badgeTextDark: {
-    color: '#000000',
-    fontWeight: '900',
-    fontSize: 9,
-  },
-  badgeTextWhite: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 9,
-  },
+  badgeYellow: { backgroundColor: '#FFD700' },
+  badgeBlue: { backgroundColor: '#2563EB' },
+  badgeTextDark: { color: '#000000', fontWeight: '900', fontSize: 9 },
+  badgeTextWhite: { color: '#FFFFFF', fontWeight: '900', fontSize: 9 },
 });

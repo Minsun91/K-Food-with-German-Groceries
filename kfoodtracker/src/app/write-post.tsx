@@ -112,18 +112,20 @@ export default function WritePostScreen() {
             <Text style={styles.backText}>← {lang === 'KR' ? '돌아가기' : 'Back'}</Text>
           </TouchableOpacity>
 
-          <View style={styles.langSelector}>
-            {(['KR', 'EN', 'DE'] as const).map((l) => (
-              <TouchableOpacity
-                key={l}
-                onPress={() => setLang(l)}
-                style={[styles.langBtn, lang === l && styles.langBtnActive]}
-              >
-                <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+          {/* 상단 언어 선택 토글 버튼 바 */}
+                  <View style={styles.topBar}>
+                    <View style={styles.langSelector}>
+                      {(['KR', 'EN', 'DE'] as const).map((l) => (
+                        <TouchableOpacity
+                          key={l}
+                          onPress={() => setLang(l)}
+                          style={[styles.langBtn, lang === l && styles.langBtnActive]}
+                        >
+                          <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
 
         <ScrollView contentContainerStyle={styles.form}>
           <Text style={styles.screenTitle}>
@@ -178,6 +180,7 @@ export default function WritePostScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -254,4 +257,6 @@ const styles = StyleSheet.create({
   },
   disabledBtn: { backgroundColor: '#FCA5A5' },
   submitBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 6 },
+
 });

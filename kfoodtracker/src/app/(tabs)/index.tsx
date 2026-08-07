@@ -123,7 +123,7 @@ export default function HomeScreen() {
           {/* 4. 최저가 등록 요청 배너 */}
           <TouchableOpacity 
             style={styles.requestBanner}
-            onPress={() => router.push('/(tabs)/mypage_anno')}
+            onPress={() => router.push('/(tabs)/mypage')}
           >
             <Text style={styles.requestBannerTitle}>{t.requestBannerTitle}</Text>
             <Text style={styles.requestBannerSub}>{t.requestBannerSub}</Text>

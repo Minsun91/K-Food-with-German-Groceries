@@ -58,7 +58,7 @@ export default function CommunityScreen() {
           { 
             text: t.alertGoMypage, 
             onPress: () => {
-              router.push('/(tabs)/mypage_anno');
+              router.push('/(tabs)/mypage');
             } 
           }
         ]
