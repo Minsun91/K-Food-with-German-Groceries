@@ -15,7 +15,7 @@ import { doc, getDoc, setDoc, onSnapshot, collection, query, where } from 'fireb
 import { useRouter } from 'expo-router';
 import LangToggle from '../../components/LangToggle'; // 경로에 맞게 수정
 
-export default function MyPageAnno() {
+export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [myPosts, setMyPosts] = useState<any[]>([]); 

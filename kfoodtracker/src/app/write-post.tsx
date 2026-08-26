@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../firebase'; // storage가 추가되어야 합니다!
+import { auth, db, storage } from '../firebase';
 import { TRANSLATIONS } from '../constants/translations';
 
 export default function WritePostScreen() {
@@ -26,7 +26,7 @@ export default function WritePostScreen() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [imageUri, setImageUri] = useState<string | null>(null); // 선택한 로컬 이미지 URI
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // 갤러리에서 사진 선택하기
@@ -67,7 +67,6 @@ export default function WritePostScreen() {
       setLoading(true);
       let imageUrl = null;
 
-      // 💡 사진이 있다면 Firebase Storage의 community/ 폴더에 업로드
       if (imageUri) {
         const response = await fetch(imageUri);
         const blob = await response.blob();
@@ -78,11 +77,10 @@ export default function WritePostScreen() {
         imageUrl = await getDownloadURL(storageRef);
       }
 
-      // Firestore에 게시글 데이터 저장
       await addDoc(collection(db, 'posts'), {
         title,
         content,
-        imageUrl, // 스토리지 이미지 URL 저장
+        imageUrl,
         authorId: currentUser.uid,
         isAnonymous: currentUser.isAnonymous,
         createdAt: serverTimestamp(),
@@ -107,26 +105,29 @@ export default function WritePostScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.container}
       >
+        {/* 1. 최상단 언어 선택 토글 (우측 정렬) */}
+        <View style={styles.topBar}>
+          <View style={styles.langSelector}>
+            {(['KR', 'EN', 'DE'] as const).map((l) => (
+              <TouchableOpacity
+                key={l}
+                onPress={() => setLang(l)}
+                style={[styles.langBtn, lang === l && styles.langBtnActive]}
+              >
+                <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 2. 언어 선택 바 아래 위치하는 헤더 (돌아가기 버튼) */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backText}>← {lang === 'KR' ? '돌아가기' : 'Back'}</Text>
           </TouchableOpacity>
+        </View>
 
-          {/* 상단 언어 선택 토글 버튼 바 */}
-                  <View style={styles.topBar}>
-                    <View style={styles.langSelector}>
-                      {(['KR', 'EN', 'DE'] as const).map((l) => (
-                        <TouchableOpacity
-                          key={l}
-                          onPress={() => setLang(l)}
-                          style={[styles.langBtn, lang === l && styles.langBtnActive]}
-                        >
-                          <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
+        {/* 3. 본문 폼 */}
         <ScrollView contentContainerStyle={styles.form}>
           <Text style={styles.screenTitle}>
             {lang === 'KR' ? '새 글 작성하기 ✍️' : 'Write a Post ✍️'}
@@ -180,7 +181,6 @@ export default function WritePostScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -189,15 +189,19 @@ export default function WritePostScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
   container: { flex: 1, backgroundColor: '#F8F9FA' },
+  topBar: { 
+    flexDirection: 'row', 
+    justifyContent: 'flex-end', 
+    paddingHorizontal: 16, 
+    paddingTop: 8 
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingVertical: 8,
   },
-  backBtn: { padding: 4 },
+  backBtn: { paddingVertical: 4, paddingRight: 8 },
   backText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
   langSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 6, padding: 2 },
   langBtn: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
@@ -257,6 +261,4 @@ const styles = StyleSheet.create({
   },
   disabledBtn: { backgroundColor: '#FCA5A5' },
   submitBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
-  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 6 },
-
 });

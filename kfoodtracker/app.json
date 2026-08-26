@@ -9,7 +9,7 @@
     "owner": "minsun716",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.anonymous.kfoodtracker",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
