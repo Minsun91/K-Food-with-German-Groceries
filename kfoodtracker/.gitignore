@@ -46,6 +46,6 @@ example
 .env.local
 .env.development.local
 
-# Firebase config files
-GoogleService-Info.plist
-google-services.json
+# Google Services Config files
+GoogleService-Info*.plist
+google-services*.json
