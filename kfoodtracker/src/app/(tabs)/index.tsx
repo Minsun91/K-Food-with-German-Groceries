@@ -136,7 +136,7 @@ export default function HomeScreen() {
               <Text style={styles.infoCardTitle}>{t.coffeeTitle}</Text>
             </View>
             <Text style={styles.infoCardDesc}>{t.coffeeDesc}</Text>
-            <TouchableOpacity style={styles.infoCardBtn} onPress={() => Linking.openURL('https://ko-fi.com')}>
+            <TouchableOpacity style={styles.infoCardBtn} onPress={() => Linking.openURL('https://ko-fi.com/kfoodtracker')}>
               <Text style={styles.infoCardBtnText}>{t.coffeeBtn} ☕</Text>
             </TouchableOpacity>
           </View>

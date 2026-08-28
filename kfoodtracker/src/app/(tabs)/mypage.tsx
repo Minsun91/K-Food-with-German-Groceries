@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, db } from '../../firebase';
 import { 
   signInAnonymously, 
   deleteUser, 
@@ -30,6 +29,7 @@ import {
   where 
 } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
+import { auth, db } from '../../firebase';
 
 // Expo 인증 라이브러리
 import * as WebBrowser from 'expo-web-browser';
@@ -50,11 +50,12 @@ export default function MyPage() {
   // 1. Google 로그인 설정 (ClientID 입력 필요)
   // ----------------------------------------------------
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    iosClientId: '1023501163434-q8n6rh2d9ficalnhbpk2359pi0f56gqb.apps.googleusercontent.com',
+    androidClientId: '1023501163434-udgftf2qhc0da8nqi99ebpongt6faajg.apps.googleusercontent.com',
+    webClientId: '1023501163434-i3nef6a92gmr8vr8ksburjs5q8lci2p9.apps.googleusercontent.com',
   });
 
+  
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
