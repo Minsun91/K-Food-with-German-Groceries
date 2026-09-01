@@ -1,40 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-  Alert,
-  ActivityIndicator,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import {StyleSheet,Text,View,TouchableOpacity,ScrollView,Linking,Alert,ActivityIndicator,Platform,} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  signInAnonymously, 
-  deleteUser, 
-  GoogleAuthProvider, 
-  OAuthProvider, 
-  signInWithCredential 
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  deleteDoc, 
-  onSnapshot, 
-  collection, 
-  query, 
-  where 
-} from 'firebase/firestore';
+import { signInAnonymously, deleteUser, GoogleAuthProvider, OAuthProvider, signInWithCredential} from 'firebase/auth';
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../../firebase';
 
-// Expo 인증 라이브러리
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { registerForPushNotificationsAsync, sendLocalNotification } from '../../utils/notification';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -45,17 +20,15 @@ export default function MyPage() {
   const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const prevFavoritesRef = useRef<any[]>([]);
 
-  // ----------------------------------------------------
-  // 1. Google 로그인 설정 (ClientID 입력 필요)
-  // ----------------------------------------------------
+  // 1. Google 로그인
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     iosClientId: '1023501163434-q8n6rh2d9ficalnhbpk2359pi0f56gqb.apps.googleusercontent.com',
     androidClientId: '1023501163434-udgftf2qhc0da8nqi99ebpongt6faajg.apps.googleusercontent.com',
     webClientId: '1023501163434-i3nef6a92gmr8vr8ksburjs5q8lci2p9.apps.googleusercontent.com',
   });
 
-  
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
@@ -70,9 +43,7 @@ export default function MyPage() {
     }
   }, [response]);
 
-  // ----------------------------------------------------
-  // 2. Apple 로그인 처리
-  // ----------------------------------------------------
+  // 2. Apple 로그인
   const handleAppleLogin = async () => {
     try {
       setLoading(true);
@@ -100,9 +71,7 @@ export default function MyPage() {
     }
   };
 
-  // ----------------------------------------------------
-  // 3. Auth 및 Firestore 실시간 동기화
-  // ----------------------------------------------------
+  // 3. Auth 및 Firestore 동기화 + 푸시 알람 등록 + 실시간 감지
   useEffect(() => {
     let unsubscribeDoc: (() => void) | undefined;
     let unsubscribePosts: (() => void) | undefined;
@@ -110,25 +79,53 @@ export default function MyPage() {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setIsLoggedIn(true);
+
+        // 🔔 [핵심] 로그인 성공 시 푸시 알림 권한 및 토큰 등록!
+        try {
+          const pushToken = await registerForPushNotificationsAsync();
+          console.log('🔔 로그인 유저 푸시 토큰 발급 완료:', pushToken);
+        } catch (err) {
+          console.log('푸시 토큰 발급 에러:', err);
+        }
+
         const userDocRef = doc(db, 'users', user.uid);
-        
         const userSnap = await getDoc(userDocRef);
         if (!userSnap.exists()) {
           await setDoc(userDocRef, { favorites: [] });
         }
 
+        // 1) 찜 목록 실시간 감지 및 푸시 발송 로직
         unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            setFavorites(docSnap.data().favorites || []);
+            const newFavorites = docSnap.data().favorites || [];
+            
+            // 이전 데이터와 현재 데이터 비교 (가격 변동 감지)
+            const prevFavs = prevFavoritesRef.current;
+            if (
+              prevFavs.length > 0 && 
+              JSON.stringify(prevFavs) !== JSON.stringify(newFavorites)
+            ) {
+              console.log('🛒 찜 목록/가격 데이터 변경 감지됨! 알림 발송 중...');
+              sendLocalNotification(
+                "🛒 가격 변동 알림", 
+                "찜하신 상품의 정보가 변경되었습니다! 지금 확인해보세요."
+              );
+            }
+
+            // Ref 및 State 업데이트
+            prevFavoritesRef.current = newFavorites;
+            setFavorites(newFavorites);
           }
         });
 
+        // 2) 내가 쓴 글 목록 감지 (authorId 기준)
         const q = query(collection(db, 'posts'), where('authorId', '==', user.uid));
         unsubscribePosts = onSnapshot(q, (snapshot) => {
           const postList = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
+          console.log('내가 쓴 글 목록 개수:', postList.length);
           setMyPosts(postList);
         });
 
@@ -136,6 +133,7 @@ export default function MyPage() {
         setIsLoggedIn(false);
         setFavorites([]);
         setMyPosts([]);
+        prevFavoritesRef.current = [];
         if (unsubscribeDoc) unsubscribeDoc();
         if (unsubscribePosts) unsubscribePosts();
       }
@@ -161,6 +159,14 @@ export default function MyPage() {
     }
   };
 
+  const handleLanguageChange = async (newLang: 'KR' | 'EN' | 'DE') => {
+    setLang(newLang);
+    const user = auth.currentUser;
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid), { language: newLang }, { merge: true });
+    }
+  };
+  
   // 회원 탈퇴
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -173,24 +179,17 @@ export default function MyPage() {
           style: 'destructive',
           onPress: async () => {
             const user = auth.currentUser;
-            if (user) {
-              try {
-                setLoading(true);
-                await deleteDoc(doc(db, 'users', user.uid));
-                await deleteUser(user);
-                Alert.alert('완료', '계정이 삭제되었습니다.');
-                setIsLoggedIn(false);
-              } catch (error: any) {
-                if (error.code === 'auth/requires-recent-login') {
-                  Alert.alert('재인증 필요', '로그아웃 후 다시 로그인하여 탈퇴를 진행해 주세요.');
-                  await auth.signOut();
-                  setIsLoggedIn(false);
-                } else {
-                  Alert.alert('오류', '계정 삭제 중 문제가 발생했습니다.');
-                }
-              } finally {
-                setLoading(false);
-              }
+            if (!user) return;
+            try {
+              setLoading(true);
+              await deleteDoc(doc(db, 'users', user.uid));
+              await deleteUser(user);
+              Alert.alert('완료', '계정이 정상적으로 삭제되었습니다.');
+            } catch (error: any) {
+              console.error('회원 탈퇴 오류:', error);
+              Alert.alert('오류', '재로그인 후 다시 시도해 주세요.');
+            } finally {
+              setLoading(false);
             }
           },
         },
@@ -198,7 +197,7 @@ export default function MyPage() {
     );
   };
 
-  return (
+return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
         
@@ -230,13 +229,12 @@ export default function MyPage() {
             </Text>
           </View>
 
-          {/* 로그인 버튼 영역 */}
+          {/* 로그인 영역 */}
           <View style={styles.loginContainer}>
             {loading ? (
               <ActivityIndicator size="large" color="#FF4757" style={{ marginVertical: 20 }} />
             ) : !isLoggedIn ? (
               <>
-                {/* 1. Google 로그인 */}
                 <TouchableOpacity
                   style={[styles.socialButton, styles.googleButton]}
                   onPress={() => promptAsync()}
@@ -245,7 +243,6 @@ export default function MyPage() {
                   <Text style={styles.googleButtonText}>🌐 Google 계정으로 로그인</Text>
                 </TouchableOpacity>
 
-                {/* 2. Apple 로그인 (iOS 전용) */}
                 {Platform.OS === 'ios' && (
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -256,7 +253,6 @@ export default function MyPage() {
                   />
                 )}
 
-                {/* 3. 익명 로그인 */}
                 <TouchableOpacity
                   style={[styles.socialButton, styles.anonymousButton]}
                   onPress={handleAnonymousLogin}
@@ -323,14 +319,24 @@ export default function MyPage() {
               </View>
             ) : (
               myPosts.map((post) => (
-                <View key={post.id} style={styles.itemCard}>
+                <TouchableOpacity 
+                  key={post.id} 
+                  style={styles.itemCard}
+                  activeOpacity={0.6}
+                  onPress={() => {
+                    console.log('클릭한 게시글 ID:', post.id);
+                    // 터치가 실제로 되는지 확인하기 위한 임시 알림
+                    // 이동하고자 하는 경로로 라우팅
+                    router.push({ pathname: '/post-detail', params: { id: post.id } });
+                  }}
+                >
                   <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={styles.itemName} numberOfLines={1}>{post.title}</Text>
                     <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>
                       {post.content}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>

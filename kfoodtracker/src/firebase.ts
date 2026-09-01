@@ -4,8 +4,12 @@ import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { Platform } from "react-native";
 
-// 1. firebase/auth 메인에서 getAuth만 깔끔하게 가져옵니다.
-import { getAuth } from "firebase/auth";
+// 1. firebase/auth 패키지만 깔끔하게 불러옵니다.
+import { initializeAuth, getAuth, Auth } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// 2. 타입 경로 에러 방지를 위해 require 방식으로 persistence 불러오기
+const { getReactNativePersistence } = require("firebase/auth");
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -17,11 +21,19 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Expo Fast Refresh 중복 생성 방지
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
-const auth = getAuth(app); // 모듈 해결 에러가 절대 나지 않는 표준 getAuth
 const storage = getStorage(app);
+
+// 3. AsyncStorage 세션 유지 적용 (중복 초기화 안 되도록 안전 처리)
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (e) {
+  auth = getAuth(app);
+}
 
 let analytics = null;
 if (Platform.OS === "web" && typeof window !== "undefined") {

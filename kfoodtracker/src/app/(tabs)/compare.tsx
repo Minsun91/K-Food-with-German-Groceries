@@ -1,25 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  FlatList,
-  Linking,
-  Platform,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  Alert
+import {ActivityIndicator,Animated,FlatList,Linking,Platform,Share,StyleSheet,Text,TextInput,TouchableOpacity,View,Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { signInAnonymously } from 'firebase/auth'
 import { TRANSLATIONS } from '../../constants/translations';
 import { useRouter } from 'expo-router';
+import { registerForPushNotificationsAsync, sendLocalNotification } from '../../utils/notification';
 
 const router = useRouter();
 
@@ -113,6 +102,7 @@ const CATEGORY_MAP: Record<string, string[]> = {
 const MY_WEB_BASE_URL = 'https://kfoodtracker.com';
 
 export default function CompareScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ search?: string }>();
   const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
   const [selectedCat, setSelectedCat] = useState<'all' | 'food' | 'beauty'>('all');
@@ -123,16 +113,56 @@ export default function CompareScreen() {
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
+    const setupPushNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        const user = auth.currentUser;
+
+        if (token && user) {
+          const userDocRef = doc(db, 'users', user.uid);
+          await setDoc(userDocRef, { pushToken: token }, { merge: true });
+          console.log('Push token saved to Firebase:', token);
+        }
+      } catch (err) {
+        console.error('Push notification setup error:', err);
+      }
+    };
+
+    setupPushNotifications();
+  }, []);
+  
+  // 🔔 푸시 권한 요청 및 Firebase 저장
+  useEffect(() => {
+    const setupPushNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        const user = auth.currentUser;
+
+        if (token && user) {
+          const userDocRef = doc(db, 'users', user.uid);
+          await setDoc(userDocRef, { pushToken: token }, { merge: true });
+          console.log('Push token saved to Firebase:', token);
+        }
+      } catch (err) {
+        console.error('Push notification setup error:', err);
+      }
+    };
+
+    setupPushNotifications();
+  }, []);
+
+  // 찜목록 실시간 감시
+  useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-  
+
     const userDocRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setMyFavorites(docSnap.data().favorites || []);
       }
     });
-  
+
     return () => unsubscribe();
   }, []);
 
@@ -143,35 +173,40 @@ export default function CompareScreen() {
     }
   }, [params.search]);
 
+  // 실시간 가격 데이터 감시
   useEffect(() => {
-    const fetchPrices = async () => {
-      setLoading(true);
-      try {
-        const [foodSnap, beautySnap] = await Promise.all([
-          getDoc(doc(db, 'prices', 'latest')),
-          getDoc(doc(db, 'beauty_prices', 'latest')),
-        ]);
+    setLoading(true);
 
+    const unsubFood = onSnapshot(
+      doc(db, 'prices', 'latest'),
+      (foodSnap) => {
         let foodRaw: RawProduct[] = [];
-        let beautyRaw: RawProduct[] = [];
-
         if (foodSnap.exists()) {
           foodRaw = (foodSnap.data().data || []).map((i: any) => ({ ...i, category: 'food' }));
         }
 
-        if (beautySnap.exists()) {
-          beautyRaw = (beautySnap.data().data || []).map((i: any) => ({ ...i, category: 'beauty' }));
-        }
+        const unsubBeauty = onSnapshot(
+          doc(db, 'beauty_prices', 'latest'),
+          (beautySnap) => {
+            let beautyRaw: RawProduct[] = [];
+            if (beautySnap.exists()) {
+              beautyRaw = (beautySnap.data().data || []).map((i: any) => ({ ...i, category: 'beauty' }));
+            }
 
-        processAndGroupData([...foodRaw, ...beautyRaw]);
-      } catch (error) {
-        console.error('가격 데이터 로드 실패:', error);
-      } finally {
+            processAndGroupData([...foodRaw, ...beautyRaw]);
+            setLoading(false);
+          }
+        );
+
+        return () => unsubBeauty();
+      },
+      (error) => {
+        console.error('실시간 가격 감시 에러:', error);
         setLoading(false);
       }
-    };
+    );
 
-    fetchPrices();
+    return () => unsubFood();
   }, []);
 
   const normalizeTitle = (title: string) => {
@@ -183,94 +218,75 @@ export default function CompareScreen() {
       .trim();
   };
 
-  // 🎈 방방 뜨는 NEW 뱃지 컴포넌트
-const BouncingNewBadge = ({ color = 'yellow' }: { color?: 'yellow' | 'blue' }) => {
-  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const BouncingNewBadge = ({ color = 'yellow' }: { color?: 'yellow' | 'blue' }) => {
+    const bounceAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: -5, // 위로 5px 톡 튐
-          duration: 350,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 350,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [bounceAnim]);
+    useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(bounceAnim, {
+            toValue: -5,
+            duration: 350,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bounceAnim, {
+            toValue: 0,
+            duration: 350,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, [bounceAnim]);
 
-  const badgeStyle = color === 'yellow' ? styles.badgeYellow : styles.badgeBlue;
-  const textStyle = color === 'yellow' ? styles.badgeTextDark : styles.badgeTextWhite;
+    const badgeStyle = color === 'yellow' ? styles.badgeYellow : styles.badgeBlue;
+    const textStyle = color === 'yellow' ? styles.badgeTextDark : styles.badgeTextWhite;
 
-  return (
-    <Animated.View
-      style={[
-        styles.badgeBase,
-        badgeStyle,
-        { transform: [{ translateY: bounceAnim }] },
-      ]}
-    >
-      <Text style={textStyle}>NEW</Text>
-    </Animated.View>
-  );
-};
-
-const handleToggleFavorite = async (item: any) => {
-  const currentUser = auth.currentUser;
-  
-  // 💡 currentUser가 없을 때만 마이페이지로 유도
-  if (!currentUser) {
-    Alert.alert(
-      t.alertLoginTitle,
-      t.alertLoginMsg,
-      [
-        { text: t.alertCancel, style: 'cancel' },
-        { 
-          text: t.alertGoMypage, 
-          onPress: () => {
-            router.push('/(tabs)/mypage');
-          } 
-        }
-      ]
+    return (
+      <Animated.View
+        style={[
+          styles.badgeBase,
+          badgeStyle,
+          { transform: [{ translateY: bounceAnim }] },
+        ]}
+      >
+        <Text style={textStyle}>NEW</Text>
+      </Animated.View>
     );
-    return;
-  }
+  };
 
-  const userDocRef = doc(db, 'users', currentUser.uid);
-  const itemName = item.title || item.name;
-  const itemPrice = item.minPrice || item.price || 0;
+  const handleToggleFavorite = async (product: any) => {
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    const userDocRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userDocRef); // 💡 getDoc 정상 동작
+  
+    if (userSnap.exists()) {
+      const currentFavorites = userSnap.data().favorites || [];
+      const isExist = currentFavorites.some((fav: any) => fav.name === product.name);
+  
+      const updatedFavorites = isExist
+        ? currentFavorites.filter((fav: any) => fav.name !== product.name)
+        : [...currentFavorites, { name: product.name, price: product.price }];
+  
+      await setDoc(userDocRef, { favorites: updatedFavorites }, { merge: true });
+    }
+  };
 
-  const exists = myFavorites.some((fav) => fav.name === itemName || fav.title === itemName);
-
-  let updatedFavorites;
-  if (exists) {
-    updatedFavorites = myFavorites.filter((fav) => fav.name !== itemName && fav.title !== itemName);
-  } else {
-    updatedFavorites = [...myFavorites, { name: itemName, price: itemPrice }];
-  }
-
-  try {
-    await setDoc(userDocRef, { favorites: updatedFavorites }, { merge: true });
-    setMyFavorites(updatedFavorites);
-  } catch (error) {
-    console.error('찜하기 실패:', error);
-  }
-};
   const processAndGroupData = (rawList: RawProduct[]) => {
     const map = new Map<string, GroupedProduct>();
-
+  
     rawList.forEach((item, index) => {
       const rawTitle = item.item?.trim() || '상품명 없음';
       const groupKey = normalizeTitle(rawTitle) || rawTitle.toLowerCase();
       
-      const numPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price as string) || 0;
+      // 💡 문자열 형태("3.99")로 들어온 가격도 숫자로 안전하게 변환
+      const numPrice = typeof item.price === 'number' 
+        ? item.price 
+        : parseFloat(item.price as unknown as string) || 0;
+        
       const subCat = (item.subCategory || '').toLowerCase().trim();
-
+  
       if (!map.has(groupKey)) {
         map.set(groupKey, {
           id: `prod_${index}_${groupKey}`,
@@ -278,60 +294,61 @@ const handleToggleFavorite = async (item: any) => {
           category: item.category,
           subCategory: subCat,
           minPrice: numPrice,
-          isNew: item.isNew,
+          isNew: item.isNew || false,
           packSize: item.packSize,
           marts: [{ mart: item.mart, price: numPrice, link: item.link }],
         });
       } else {
         const existing = map.get(groupKey)!;
-
+  
         const isMartExist = existing.marts.some((m) => m.mart === item.mart);
         if (!isMartExist) {
           existing.marts.push({ mart: item.mart, price: numPrice, link: item.link });
         }
-
+  
         if (item.isNew) {
           existing.isNew = true;
         }
-
+  
         if (!existing.subCategory && subCat) {
           existing.subCategory = subCat;
         }
-
+  
         if (numPrice > 0 && (numPrice < existing.minPrice || existing.minPrice === 0)) {
           existing.minPrice = numPrice;
         }
       }
     });
-
+  
     const result = Array.from(map.values()).map((prod) => ({
       ...prod,
       marts: prod.marts.sort((a, b) => a.price - b.price),
     }));
-
+  
+    // 💡 NEW 뱃지가 붙은 신규 상품을 리스트 맨 위로 배치
+    result.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+  
     setGroupedItems(result);
   };
 
-  
-const handleShare = async (product: GroupedProduct) => {
-  try {
-    const encodedTitle = encodeURIComponent(product.title);
-    const langParam = lang === 'KR' ? 'ko' : lang.toLowerCase();
-    const shareUrl = `${MY_WEB_BASE_URL}/price?search=${encodedTitle}&lang=${langParam}&tab=${selectedCat}`;
-    const priceStr = product.minPrice.toFixed(2);
+  const handleShare = async (product: GroupedProduct) => {
+    try {
+      const encodedTitle = encodeURIComponent(product.title);
+      const langParam = lang === 'KR' ? 'ko' : lang.toLowerCase();
+      const shareUrl = `${MY_WEB_BASE_URL}/price?search=${encodedTitle}&lang=${langParam}&tab=${selectedCat}`;
+      const priceStr = product.minPrice.toFixed(2);
 
-    // 💡 현재 선택된 언어(lang)에 맞는 메세지 생성
-    const message = t.shareMessage(product.title, priceStr, shareUrl);
+      const message = t.shareMessage(product.title, priceStr, shareUrl);
 
-    await Share.share(
-      Platform.OS === 'ios' ? { message, url: shareUrl } : { message }
-    );
-  } catch (error) {
-    console.error('공유 실패:', error);
-  }
-};
+      await Share.share(
+        Platform.OS === 'ios' ? { message, url: shareUrl } : { message }
+      );
+    } catch (error) {
+      console.error('공유 실패:', error);
+    }
+  };
 
-const openLink = (url?: string) => {
+  const openLink = (url?: string) => {
     if (url) {
       Linking.openURL(url).catch((err) => console.error('Page load error:', err));
     }
@@ -363,26 +380,26 @@ const openLink = (url?: string) => {
 
   return (
     <SafeAreaView style={styles.container}>
-             {/* 상단 언어 선택 토글 버튼 바 */}
-              <View style={styles.topBar}>
-                <View style={styles.langSelector}>
-                  {(['KR', 'EN', 'DE'] as const).map((l) => (
-                    <TouchableOpacity
-                      key={l}
-                      onPress={() => setLang(l)}
-                      style={[styles.langBtn, lang === l && styles.langBtnActive]}
-                    >
-                      <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+      {/* 1. 상단 언어 선택 토글 버튼 바 */}
+      <View style={styles.topBar}>
+        <View style={styles.langSelector}>
+          {(['KR', 'EN', 'DE'] as const).map((l) => (
+            <TouchableOpacity
+              key={l}
+              onPress={() => setLang(l)}
+              style={[styles.langBtn, lang === l && styles.langBtnActive]}
+            >
+              <Text style={[styles.langText, lang === l && styles.langTextActive]}>{l}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* 2. 검색창 */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder={t.placeholder} // 💡 다국어 플레이스홀더 적용
+          placeholder={t.placeholder}
           value={search}
           onChangeText={setSearch}
         />
@@ -393,12 +410,30 @@ const openLink = (url?: string) => {
         )}
       </View>
 
-      {/* 3. 대카테고리 탭 */}
+      {/* 🔔 3. 푸시 알림 테스트 버튼 */}
+      <TouchableOpacity
+        style={{
+          padding: 10,
+          backgroundColor: '#FF4757',
+          borderRadius: 8,
+          marginHorizontal: 16,
+          marginBottom: 12,
+        }}
+        onPress={async () => {
+          await sendLocalNotification('K-Food Tracker 🔔', '실시간 알림이 정상 작동합니다!');
+        }}
+      >
+        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
+          🔔 푸시 알림 실행
+        </Text>
+      </TouchableOpacity>
+
+      {/* 4. 대카테고리 탭 */}
       <View style={styles.tabRow}>
         {[
-          { key: 'all', label: t.catAll },       // 💡 다국어 탭 적용
-          { key: 'food', label: t.catFood },     
-          { key: 'beauty', label: t.catBeauty }, 
+          { key: 'all', label: t.catAll },
+          { key: 'food', label: t.catFood },
+          { key: 'beauty', label: t.catBeauty },
         ].map((tab) => (
           <TouchableOpacity
             key={tab.key}
@@ -412,7 +447,7 @@ const openLink = (url?: string) => {
         ))}
       </View>
 
-      {/* 4. 리스트 */}
+      {/* 5. 리스트 */}
       {loading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#FF4757" />
@@ -424,11 +459,13 @@ const openLink = (url?: string) => {
           contentContainerStyle={styles.listPadding}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{t.emptyText}</Text> {/* 💡 다국어 빈 화면 문구 */}
+              <Text style={styles.emptyText}>{t.emptyText}</Text>
             </View>
           }
           renderItem={({ item }) => {
-            const isFavorited = myFavorites.some((fav) => fav.name === item.title || fav.title === item.title);
+            const isFavorited = myFavorites.some(
+              (fav) => fav.name === item.title || fav.title === item.title
+            );
 
             return (
               <View style={styles.card}>
@@ -441,21 +478,21 @@ const openLink = (url?: string) => {
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <TouchableOpacity 
-                      style={styles.shareBtn} 
+                    <TouchableOpacity
+                      style={styles.shareBtn}
                       onPress={() => handleToggleFavorite(item)}
                     >
                       <Text style={{ fontSize: 16 }}>{isFavorited ? '❤️' : '🤍'}</Text>
                     </TouchableOpacity>
-          
+
                     <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(item)}>
                       <Text style={styles.shareBtnText}>{t.shareBtn}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-          
+
                 <View style={styles.divider} />
-          
+
                 <View style={styles.martListContainer}>
                   {item.marts.map((m, idx) => (
                     <TouchableOpacity
@@ -470,7 +507,7 @@ const openLink = (url?: string) => {
                         </Text>
                         {idx === 0 && <Text style={styles.bestTag}>최저가몰</Text>}
                       </View>
-          
+
                       <View style={styles.martPriceContainer}>
                         <Text style={[styles.martPrice, idx === 0 && styles.bestPriceText]}>
                           € {m.price.toFixed(2)}

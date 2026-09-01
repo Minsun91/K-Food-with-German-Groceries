@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,13 +10,58 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebase'; // Firebase 설정 경로 확인
 import { TRANSLATIONS } from '../../constants/translations';
+
+// 🔔 푸시 알림 함수 불러오기 (파일 위치에 맞춰 경로 조절)
+import { registerForPushNotificationsAsync } from '../../utils/notification';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function HomeScreen() {
   const [lang, setLang] = useState<'KR' | 'EN' | 'DE'>('KR');
   const t = TRANSLATIONS[lang];
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+  useEffect(() => {
+    // 로그인 상태가 확실히 확인되었을 때 토큰을 저장하도록 구독
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            const userDocRef = doc(db, 'users', user.uid);
+            await setDoc(userDocRef, { pushToken: token }, { merge: true });
+            console.log('✅ pushToken 저장 성공:', token);
+          }
+        } catch (err) {
+          console.error('Push setup error:', err);
+        }
+      }
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
+  // 🔔 [추가] 홈 화면 진입 시 푸시 알림 권한 요청 및 Firebase 저장
+  useEffect(() => {
+    const setupPushNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        const user = auth.currentUser;
+
+        if (token && user) {
+          const userDocRef = doc(db, 'users', user.uid);
+          await setDoc(userDocRef, { pushToken: token }, { merge: true });
+          console.log('Home Screen - Push token saved:', token);
+        }
+      } catch (err) {
+        console.error('Home Screen - Push setup error:', err);
+      }
+    };
+
+    setupPushNotifications();
+  }, []);
 
   const [popularItems] = useState<any[]>([
     { id: '1', name: '신라면 (5개입)', price: '4.50 €', icon: '🍜', tag: 'HOT', searchKeyword: '신라면' },
@@ -123,7 +168,7 @@ export default function HomeScreen() {
           {/* 4. 최저가 등록 요청 배너 */}
           <TouchableOpacity 
             style={styles.requestBanner}
-            onPress={() => router.push('/(tabs)/mypage')}
+            onPress={() => router.push('/(tabs)/community')}
           >
             <Text style={styles.requestBannerTitle}>{t.requestBannerTitle}</Text>
             <Text style={styles.requestBannerSub}>{t.requestBannerSub}</Text>
