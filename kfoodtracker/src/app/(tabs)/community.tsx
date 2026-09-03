@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  Alert,
-  Image,
-  FlatList,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Alert, Image, FlatList,} from 'react-native';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
 import { TRANSLATIONS } from '../../constants/translations';
 import { useRouter } from 'expo-router';
@@ -22,7 +13,8 @@ export default function CommunityScreen() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
-  const [posts, setPosts] = useState<any[]>([]); // 실시간 게시글 목록
+  const [posts, setPosts] = useState<any[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -30,7 +22,29 @@ export default function CommunityScreen() {
       if (initializing) setInitializing(false);
     });
 
-    // Firestore의 posts 컬렉션에서 최신순으로 글 실시간 가져오기
+    return () => unsubscribeAuth();
+  }, []);
+
+  // 1. 로그인한 유저의 차단 리스트 실시간 구독 (Apple Guideline 1.2: 사용자 차단 기능)
+  useEffect(() => {
+    if (!currentUser) {
+      setBlockedUserIds([]);
+      return;
+    }
+
+    const userRef = doc(db, 'users', currentUser.uid);
+    const unsubscribeUser = onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.data();
+        setBlockedUserIds(userData.blockedUsers || []);
+      }
+    });
+
+    return () => unsubscribeUser();
+  }, [currentUser]);
+
+  // 2. 피드 목록 구독 및 필터링 (차단된 작성자 및 신고 처리된 글 즉시 숨김)
+  useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribePosts = onSnapshot(q, (snapshot) => {
       const postList = snapshot.docs.map((doc) => ({
@@ -40,11 +54,15 @@ export default function CommunityScreen() {
       setPosts(postList);
     });
 
-    return () => {
-      unsubscribeAuth();
-      unsubscribePosts();
-    };
+    return () => unsubscribePosts();
   }, []);
+
+  // 3. 차단 유저 글 & 블라인드 처리된 글 제거
+  const filteredPosts = posts.filter((post) => {
+    const isBlockedUser = blockedUserIds.includes(post.userId);
+    const isHidden = post.isBlocked === true; // 서버/관리자에 의해 블라인드된 글
+    return !isBlockedUser && !isHidden;
+  });
 
   const handlePressWrite = () => {
     if (initializing) return;
@@ -57,9 +75,7 @@ export default function CommunityScreen() {
           { text: t.alertCancel, style: 'cancel' },
           { 
             text: t.alertGoMypage, 
-            onPress: () => {
-              router.push('/(tabs)/mypage');
-            } 
+            onPress: () => router.push('/(tabs)/mypage') 
           }
         ]
       );
@@ -73,7 +89,7 @@ export default function CommunityScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* 상단 언어 선택 토글 버튼 바 */}
+        {/* 언어 선택 토글 */}
         <View style={styles.topBar}>
           <View style={styles.langSelector}>
             {(['KR', 'EN', 'DE'] as const).map((l) => (
@@ -96,9 +112,9 @@ export default function CommunityScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 게시글 목록 피드 */}
+          {/* 필터링된 게시글 목록 피드 */}
           <FlatList
-            data={posts}
+            data={filteredPosts}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.postList}
             renderItem={({ item }) => (
@@ -116,7 +132,6 @@ export default function CommunityScreen() {
                     <Text style={styles.postTitle} numberOfLines={1}>{item.title}</Text>
                     <Text style={styles.postContent} numberOfLines={2}>{item.content}</Text>
                   </View>
-                  {/* 이미지가 있다면 썸네일 표시 */}
                   {item.imageUrl && (
                     <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
                   )}

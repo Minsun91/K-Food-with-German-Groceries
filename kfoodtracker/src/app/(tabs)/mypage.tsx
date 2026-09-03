@@ -5,6 +5,7 @@ import { signInAnonymously, deleteUser, GoogleAuthProvider, OAuthProvider, signI
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
 import { auth, db } from '../../firebase';
+import { TRANSLATIONS } from '../../constants/translations';
 
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -21,6 +22,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const prevFavoritesRef = useRef<any[]>([]);
+  const t = TRANSLATIONS[lang];
 
   // 1. Google 로그인
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
@@ -94,29 +96,33 @@ export default function MyPage() {
           await setDoc(userDocRef, { favorites: [] });
         }
 
-        // 1) 찜 목록 실시간 감지 및 푸시 발송 로직
-        unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const newFavorites = docSnap.data().favorites || [];
-            
-            // 이전 데이터와 현재 데이터 비교 (가격 변동 감지)
-            const prevFavs = prevFavoritesRef.current;
-            if (
-              prevFavs.length > 0 && 
-              JSON.stringify(prevFavs) !== JSON.stringify(newFavorites)
-            ) {
-              console.log('🛒 찜 목록/가격 데이터 변경 감지됨! 알림 발송 중...');
-              sendLocalNotification(
-                "🛒 가격 변동 알림", 
-                "찜하신 상품의 정보가 변경되었습니다! 지금 확인해보세요."
-              );
-            }
+// 1) 찜 목록 실시간 감지 (진짜 가격 변동일 때만 알림)
+unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+  if (docSnap.exists()) {
+    const newFavorites = docSnap.data().favorites || [];
+    const prevFavs = prevFavoritesRef.current;
 
-            // Ref 및 State 업데이트
-            prevFavoritesRef.current = newFavorites;
-            setFavorites(newFavorites);
-          }
-        });
+    // 💡 [개선] 단순 추가/삭제가 아니라, 개수는 같은데 '가격'이 바뀐 경우만 가격 변동 알림 발송
+    if (prevFavs.length > 0 && prevFavs.length === newFavorites.length) {
+      const hasPriceChanged = newFavorites.some((newItem: any) => {
+        const prevItem = prevFavs.find((p: any) => (p.name || p.title) === (newItem.name || newItem.title));
+        return prevItem && prevItem.price !== newItem.price;
+      });
+
+      if (hasPriceChanged) {
+        console.log('🛒 가격 변동 감지됨! 알림 발송 중...');
+        sendLocalNotification(
+          "🛒 가격 변동 알림", 
+          "찜하신 상품의 가격이 변동되었습니다! 지금 확인해보세요."
+        );
+      }
+    }
+
+    // Ref 및 State 업데이트
+    prevFavoritesRef.current = newFavorites;
+    setFavorites(newFavorites);
+  }
+});
 
         // 2) 내가 쓴 글 목록 감지 (authorId 기준)
         const q = query(collection(db, 'posts'), where('authorId', '==', user.uid));
@@ -170,12 +176,12 @@ export default function MyPage() {
   // 회원 탈퇴
   const handleDeleteAccount = () => {
     Alert.alert(
-      lang === 'KR' ? '계정 탈퇴' : 'Delete Account',
-      lang === 'KR' ? '정말로 탈퇴하시겠습니까? 데이터가 모두 삭제됩니다.' : 'Are you sure?',
+      t.deleteAccountTitle,
+      t.deleteAccountConfirm,
       [
-        { text: '취소', style: 'cancel' },
+        { text: t.cancel, style: 'cancel' },
         {
-          text: '탈퇴',
+          text: t.delete,
           style: 'destructive',
           onPress: async () => {
             const user = auth.currentUser;
@@ -184,10 +190,10 @@ export default function MyPage() {
               setLoading(true);
               await deleteDoc(doc(db, 'users', user.uid));
               await deleteUser(user);
-              Alert.alert('완료', '계정이 정상적으로 삭제되었습니다.');
+              Alert.alert(t.deleteSuccessTitle, t.deleteSuccessMsg);
             } catch (error: any) {
               console.error('회원 탈퇴 오류:', error);
-              Alert.alert('오류', '재로그인 후 다시 시도해 주세요.');
+              Alert.alert(t.deleteErrorTitle, t.deleteErrorMsg);
             } finally {
               setLoading(false);
             }
@@ -268,7 +274,9 @@ return (
                   setIsLoggedIn(false);
                 }}
               >
-                <Text style={styles.logoutButtonText}>로그아웃</Text>
+                <Text style={styles.logoutButtonText}>
+    {t?.logoutBtn || (lang === 'KR' ? '로그아웃' : lang === 'EN' ? 'Log Out' : 'Abmelden')}
+  </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -325,8 +333,7 @@ return (
                   activeOpacity={0.6}
                   onPress={() => {
                     console.log('클릭한 게시글 ID:', post.id);
-                    // 터치가 실제로 되는지 확인하기 위한 임시 알림
-                    // 이동하고자 하는 경로로 라우팅
+                   
                     router.push({ pathname: '/post-detail', params: { id: post.id } });
                   }}
                 >
@@ -342,18 +349,28 @@ return (
           </View>
 
           {/* 개인정보처리방침 및 탈퇴 */}
-          <View style={styles.footerLinksContainer}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://your-privacy-policy-link.com')}>
-              <Text style={styles.footerLinkText}>개인정보처리방침</Text>
-            </TouchableOpacity>
+<View style={styles.footerLinksContainer}>
+  {/* 개인정보처리방침 */}
+  <TouchableOpacity 
+    onPress={() => Linking.openURL('https://kfoodtracker.com/privacy')}
+  >
+    <Text style={styles.footerLinkText}>
+      {t?.privacyPolicy || (lang === 'KR' ? '개인정보 처리방침' : lang === 'EN' ? 'Privacy Policy' : 'Datenschutz')}
+    </Text>
+  </TouchableOpacity>
 
-            {isLoggedIn && (
-              <TouchableOpacity onPress={handleDeleteAccount} style={{ marginTop: 12 }}>
-                <Text style={[styles.footerLinkText, { color: '#EF4444' }]}>회원 탈퇴 (계정 삭제)</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
+  {/* 로그인된 사용자에게만 회원탈퇴 버튼 표시 */}
+  {isLoggedIn && (
+    <>
+      <Text style={{ color: '#D1D5DB', marginHorizontal: 8 }}>|</Text>
+      <TouchableOpacity onPress={handleDeleteAccount}>
+        <Text style={[styles.footerLinkText, { color: '#EF4444' }]}>
+          {t?.deleteAccount || (lang === 'KR' ? '회원탈퇴' : lang === 'EN' ? 'Delete Account' : 'Konto löschen')}
+        </Text>
+      </TouchableOpacity>
+    </>
+  )}
+</View>
         </ScrollView>
       </View>
     </SafeAreaView>

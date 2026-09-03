@@ -11,6 +11,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,8 +29,8 @@ export default function WritePostScreen() {
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [agreedToEula, setAgreedToEula] = useState(false); // EULA 동의 상태
 
-  // 갤러리에서 사진 선택하기
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -49,6 +50,16 @@ export default function WritePostScreen() {
   };
 
   const handleCreatePost = async () => {
+    if (!agreedToEula) {
+      Alert.alert(
+        lang === 'KR' ? '약관 동의 필요' : 'Terms Required',
+        lang === 'KR' 
+          ? '커뮤니티 가이드라인 및 이용약관에 동의해야 글을 작성할 수 있습니다.' 
+          : 'You must agree to the Terms of Service to post content.'
+      );
+      return;
+    }
+
     if (!title.trim() || !content.trim()) {
       Alert.alert(
         lang === 'KR' ? '알림' : 'Notice',
@@ -105,7 +116,6 @@ export default function WritePostScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.container}
       >
-        {/* 1. 최상단 언어 선택 토글 (우측 정렬) */}
         <View style={styles.topBar}>
           <View style={styles.langSelector}>
             {(['KR', 'EN', 'DE'] as const).map((l) => (
@@ -120,14 +130,12 @@ export default function WritePostScreen() {
           </View>
         </View>
 
-        {/* 2. 언어 선택 바 아래 위치하는 헤더 (돌아가기 버튼) */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backText}>← {lang === 'KR' ? '돌아가기' : 'Back'}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* 3. 본문 폼 */}
         <ScrollView contentContainerStyle={styles.form}>
           <Text style={styles.screenTitle}>
             {lang === 'KR' ? '새 글 작성하기 ✍️' : 'Write a Post ✍️'}
@@ -151,7 +159,6 @@ export default function WritePostScreen() {
             onChangeText={setContent}
           />
 
-          {/* 사진 첨부 버튼 및 미리보기 */}
           <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
             <Text style={styles.imagePickerBtnText}>
               {imageUri ? '📷 사진 변경하기' : '📷 사진 첨부하기'}
@@ -167,14 +174,40 @@ export default function WritePostScreen() {
             </View>
           )}
 
-          <Text style={styles.noticeText}>
-            {lang === 'KR' ? '⚠️ 작성하신 글과 사진은 모든 사용자에게 공개됩니다.' : '⚠️ Your post and photo will be visible to all users.'}
-          </Text>
+          {/* Apple UGC 규정 필수 요구사항: EULA 및 가이드라인 동의 박스 */}
+          <View style={styles.eulaContainer}>
+            <TouchableOpacity 
+              style={styles.checkboxRow} 
+              onPress={() => setAgreedToEula(!agreedToEula)}
+            >
+              <View style={[styles.checkbox, agreedToEula && styles.checkboxChecked]}>
+                {agreedToEula && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.eulaText}>
+                {lang === 'KR' 
+                  ? '[필수] 커뮤니티 가이드라인 및 이용약관 동의' 
+                  : '[Required] Agree to Terms of Service & EULA'}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.noticeText}>
+              {lang === 'KR' 
+                ? '⚠️ 불쾌감을 주는 콘텐츠, 욕설, 차별적 발언 작성 시 즉시 삭제 처리되며 서비스 이용이 제한됩니다.' 
+                : '⚠️ Abusive or inappropriate content will be removed immediately and may result in a ban.'}
+            </Text>
+            
+            {/* 표준 Apple EULA 링크 연결 (Apple 기본 이용약관 주소 연결 가능) */}
+            <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+              <Text style={styles.linkText}>
+                {lang === 'KR' ? '이용약관(EULA) 전문 보기' : 'View Terms of Use (EULA)'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity 
-            style={[styles.submitBtn, loading && styles.disabledBtn]} 
+            style={[styles.submitBtn, (!agreedToEula || loading) && styles.disabledBtn]} 
             onPress={handleCreatePost}
-            disabled={loading}
+            disabled={loading || !agreedToEula}
           >
             <Text style={styles.submitBtnText}>
               {loading ? '등록 중...' : (lang === 'KR' ? '등록하기' : 'Submit')}
@@ -189,18 +222,8 @@ export default function WritePostScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  topBar: { 
-    flexDirection: 'row', 
-    justifyContent: 'flex-end', 
-    paddingHorizontal: 16, 
-    paddingTop: 8 
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
+  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
   backBtn: { paddingVertical: 4, paddingRight: 8 },
   backText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
   langSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 6, padding: 2 },
@@ -252,13 +275,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  noticeText: { fontSize: 12, color: '#9CA3AF', marginBottom: 20, textAlign: 'center' },
+  eulaContainer: {
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: { backgroundColor: '#FF4757', borderColor: '#FF4757' },
+  checkmark: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
+  eulaText: { fontSize: 13, fontWeight: 'bold', color: '#1F2937' },
+  noticeText: { fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 16 },
+  linkText: { fontSize: 12, color: '#FF4757', textDecorationLine: 'underline' },
   submitBtn: {
     backgroundColor: '#FF4757',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
-  disabledBtn: { backgroundColor: '#FCA5A5' },
+  disabledBtn: { backgroundColor: '#9CA3AF' },
   submitBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });

@@ -8,7 +8,7 @@ import { db, auth } from '../../firebase';
 import { signInAnonymously } from 'firebase/auth'
 import { TRANSLATIONS } from '../../constants/translations';
 import { useRouter } from 'expo-router';
-import { registerForPushNotificationsAsync, sendLocalNotification } from '../../utils/notification';
+// import { registerForPushNotificationsAsync, sendLocalNotification } from '../../utils/notification';
 
 const router = useRouter();
 
@@ -112,44 +112,44 @@ export default function CompareScreen() {
   const [myFavorites, setMyFavorites] = useState<any[]>([]);
   const t = TRANSLATIONS[lang];
 
-  useEffect(() => {
-    const setupPushNotifications = async () => {
-      try {
-        const token = await registerForPushNotificationsAsync();
-        const user = auth.currentUser;
+  // useEffect(() => {
+  //   const setupPushNotifications = async () => {
+  //     try {
+  //       const token = await registerForPushNotificationsAsync();
+  //       const user = auth.currentUser;
 
-        if (token && user) {
-          const userDocRef = doc(db, 'users', user.uid);
-          await setDoc(userDocRef, { pushToken: token }, { merge: true });
-          console.log('Push token saved to Firebase:', token);
-        }
-      } catch (err) {
-        console.error('Push notification setup error:', err);
-      }
-    };
+  //       if (token && user) {
+  //         const userDocRef = doc(db, 'users', user.uid);
+  //         await setDoc(userDocRef, { pushToken: token }, { merge: true });
+  //         console.log('Push token saved to Firebase:', token);
+  //       }
+  //     } catch (err) {
+  //       console.error('Push notification setup error:', err);
+  //     }
+  //   };
 
-    setupPushNotifications();
-  }, []);
+  //   setupPushNotifications();
+  // }, []);
   
-  // 🔔 푸시 권한 요청 및 Firebase 저장
-  useEffect(() => {
-    const setupPushNotifications = async () => {
-      try {
-        const token = await registerForPushNotificationsAsync();
-        const user = auth.currentUser;
+  // // 🔔 푸시 권한 요청 및 Firebase 저장
+  // useEffect(() => {
+  //   const setupPushNotifications = async () => {
+  //     try {
+  //       const token = await registerForPushNotificationsAsync();
+  //       const user = auth.currentUser;
 
-        if (token && user) {
-          const userDocRef = doc(db, 'users', user.uid);
-          await setDoc(userDocRef, { pushToken: token }, { merge: true });
-          console.log('Push token saved to Firebase:', token);
-        }
-      } catch (err) {
-        console.error('Push notification setup error:', err);
-      }
-    };
+  //       if (token && user) {
+  //         const userDocRef = doc(db, 'users', user.uid);
+  //         await setDoc(userDocRef, { pushToken: token }, { merge: true });
+  //         console.log('Push token saved to Firebase:', token);
+  //       }
+  //     } catch (err) {
+  //       console.error('Push notification setup error:', err);
+  //     }
+  //   };
 
-    setupPushNotifications();
-  }, []);
+  //   setupPushNotifications();
+  // }, []);
 
   // 찜목록 실시간 감시
   useEffect(() => {
@@ -257,22 +257,40 @@ export default function CompareScreen() {
   const handleToggleFavorite = async (product: any) => {
     const user = auth.currentUser;
     if (!user) return;
-  
-    const userDocRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userDocRef); // 💡 getDoc 정상 동작
-  
-    if (userSnap.exists()) {
-      const currentFavorites = userSnap.data().favorites || [];
-      const isExist = currentFavorites.some((fav: any) => fav.name === product.name);
-  
+
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userDocRef);
+
+      let currentFavorites: any[] = [];
+      if (userSnap.exists()) {
+        currentFavorites = userSnap.data().favorites || [];
+      }
+
+      // 안전한 객체 생성 (undefined 방지)
+      const productName = product.title || product.name || '상품명 없음';
+      const productPrice = typeof product.minPrice === 'number' 
+        ? product.minPrice 
+        : (typeof product.price === 'number' ? product.price : 0);
+
+      const isExist = currentFavorites.some((fav: any) => fav.name === productName || fav.title === productName);
+
       const updatedFavorites = isExist
-        ? currentFavorites.filter((fav: any) => fav.name !== product.name)
-        : [...currentFavorites, { name: product.name, price: product.price }];
-  
+        ? currentFavorites.filter((fav: any) => fav.name !== productName && fav.title !== productName)
+        : [...currentFavorites, { name: productName, price: productPrice, id: product.id || productName }];
+
+      // 1. Firestore 업데이트
       await setDoc(userDocRef, { favorites: updatedFavorites }, { merge: true });
+
+      // 2. 💡 화면 하트 색상 즉시 반영 (setFavorites -> setMyFavorites 로 수정)
+      if (typeof setMyFavorites === 'function') {
+        setMyFavorites(updatedFavorites);
+      }
+    } catch (error) {
+      console.error('찜하기 처리 에러:', error);
     }
   };
-
+  
   const processAndGroupData = (rawList: RawProduct[]) => {
     const map = new Map<string, GroupedProduct>();
   
@@ -409,24 +427,6 @@ export default function CompareScreen() {
           </TouchableOpacity>
         )}
       </View>
-
-      {/* 🔔 3. 푸시 알림 테스트 버튼 */}
-      <TouchableOpacity
-        style={{
-          padding: 10,
-          backgroundColor: '#FF4757',
-          borderRadius: 8,
-          marginHorizontal: 16,
-          marginBottom: 12,
-        }}
-        onPress={async () => {
-          await sendLocalNotification('K-Food Tracker 🔔', '실시간 알림이 정상 작동합니다!');
-        }}
-      >
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
-          🔔 푸시 알림 실행
-        </Text>
-      </TouchableOpacity>
 
       {/* 4. 대카테고리 탭 */}
       <View style={styles.tabRow}>

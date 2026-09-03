@@ -1,13 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-  FlatList,
-} from 'react-native';
+import {StyleSheet,Text,View,TouchableOpacity,ScrollView,Linking,FlatList} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { doc, setDoc } from 'firebase/firestore';
@@ -103,22 +95,24 @@ export default function HomeScreen() {
 
           {/* 2. 카테고리 탭 영역 (다국어 자동 연동) */}
           <View style={styles.categoryContainer}>
-            {t.categories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={styles.categoryBtn}
-                onPress={() => {
-                  router.push({
-                    pathname: '/(tabs)/compare',
-                    params: { search: cat.keyword },
-                  });
-                }}
-              >
-                <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                <Text style={styles.categoryLabel}>{cat.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+  {t.categories.map((cat: { id: string; label: string; icon: string; keyword: string; category?: string }) => (
+    <TouchableOpacity
+      key={cat.id}
+      style={styles.categoryBtn}
+      onPress={() => {
+        router.push({
+          pathname: '/(tabs)/compare',
+          params: cat.category 
+            ? { category: cat.category } 
+            : { search: cat.keyword },
+        });
+      }}
+    >
+      <Text style={styles.categoryIcon}>{cat.icon}</Text>
+      <Text style={styles.categoryLabel}>{cat.label}</Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
           {/* 3. 메인 콘텐츠: 실시간 최저가 핫딜 */}
           <View style={styles.sectionMargin}>

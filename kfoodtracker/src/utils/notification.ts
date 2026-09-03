@@ -2,19 +2,25 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
 
-// 앱이 켜져 있을 때 알람 설정 (최신 Expo SDK 규격 반영)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true, // 💡 최신 타입 규격 대응
-    shouldShowList: true,   // 💡 최신 타입 규격 대응
-  }),
-});
+// 💡 웹이 아닐 때만 알림 핸들러 설정 (웹 크래시 방지)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
-// 1. 푸시 알람 권한 요청 및 토큰 가져오기 (export 추가 완료!)
+// 1. 푸시 알람 권한 요청 및 토큰 가져오기
 export async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
   let token;
 
   if (Platform.OS === 'android') {
@@ -55,12 +61,19 @@ export async function registerForPushNotificationsAsync() {
 
 // 2. 즉시 로컬 알람 보내기 테스트 함수
 export async function sendLocalNotification(title: string, body: string) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: title,
-      body: body,
-      data: { data: 'goes here' },
-    },
-    trigger: null, // null이면 즉시 발송
-  });
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.error('Local notification error:', error);
+  }
 }
